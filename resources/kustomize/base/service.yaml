@@ -1,0 +1,12 @@
+kind: Service
+apiVersion: v1
+metadata:
+  name: urlstats-service
+spec:
+  type: NodePort
+  ports:
+  - name: http
+    port: 5000
+    nodePort: 30950
+  selector:
+    app: urlstats

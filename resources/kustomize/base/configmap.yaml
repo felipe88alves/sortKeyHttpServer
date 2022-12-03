@@ -1,0 +1,9 @@
+kind: ConfigMap
+apiVersion: v1
+metadata:
+  name: urlstats-data
+data:
+  urls: |
+    https://raw.githubusercontent.com/assignment132/assignment/main/duckduckgo.json
+    https://raw.githubusercontent.com/assignment132/assignment/main/google.json
+    https://raw.githubusercontent.com/assignment132/assignment/main/wikipedia.json

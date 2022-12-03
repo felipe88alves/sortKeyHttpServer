@@ -1,0 +1,10 @@
+version: "3.9"
+services:
+  app:
+    build: .
+    ports:
+      - "80:5000"
+    volumes:
+      - ./resources/raw-json-files:/resources/raw-json-files
+    environment:
+      - DATA_COLLECTION_METHOD=file

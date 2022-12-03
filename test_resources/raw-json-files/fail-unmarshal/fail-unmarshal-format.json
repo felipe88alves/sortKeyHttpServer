@@ -1,0 +1,7 @@
+{
+  "data": [
+    {
+      "url": "www.example.com/abc1",
+      "views": 1000,
+      "relevanceScore": 0.5
+    }

@@ -1,0 +1,59 @@
+---
+kind: Deployment
+apiVersion: apps/v1
+metadata:
+  name: urlstats-deployment
+  labels:
+    app: urlstats
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: urlstats
+  template:
+    metadata:
+      labels:
+        app: urlstats
+    spec:
+      containers:
+      - name: sortedurlstats
+        image: webservice/sortedurlstats:0.1
+        imagePullPolicy: Never
+        ports:
+        - containerPort: 5000
+        volumeMounts:
+        - name: config
+          mountPath: "/config"
+          readOnly: true
+      volumes:
+      - name: config
+        configMap:
+          name: urlstats-data
+          items:
+          - key: urls
+            path: urlAddresses.cfg
+
+---
+kind: Service
+apiVersion: v1
+metadata:
+  name: urlstats-service
+spec:
+  type: NodePort
+  ports:
+  - name: http
+    port: 5000
+    nodePort: 30950
+  selector:
+    app: urlstats
+
+---
+kind: ConfigMap
+apiVersion: v1
+metadata:
+  name: urlstats-data
+data:
+  urls: |
+    https://raw.githubusercontent.com/assignment132/assignment/main/duckduckgo.json
+    https://raw.githubusercontent.com/assignment132/assignment/main/google.json
+    https://raw.githubusercontent.com/assignment132/assignment/main/wikipedia.json

@@ -1,0 +1,29 @@
+{
+  "data": [
+    {
+      "url": "www.yahoo.com/abc6",
+      "views": 6000,
+      "relevanceScore": 0.6
+    },
+    {
+      "url": "www.yahoo.com/abc7",
+      "views": 7000,
+      "relevanceScore": 0.7
+    },
+    {
+      "url": "www.yahoo.com/abc8",
+      "views": 8000,
+      "relevanceScore": 0.8
+    },
+    {
+      "url": "www.yahoo.com/abc9",
+      "views": 9000,
+      "relevanceScore": 0.9
+    },
+    {
+      "url": "www.yahoo.com/abc10",
+      "views": 10000,
+      "relevanceScore": 1.0
+    }
+  ]
+}

@@ -1,0 +1,29 @@
+{
+  "data": [
+    {
+      "url": "www.wikipedia.com/abc1",
+      "views": 11000,
+      "relevanceScore": 0.1
+    },
+    {
+      "url": "www.wikipedia.com/abc2",
+      "views": 12000,
+      "relevanceScore": 0.2
+    },
+    {
+      "url": "www.wikipedia.com/abc4",
+      "views": 13000,
+      "relevanceScore": 0.4
+    },
+    {
+      "url": "www.wikipedia.com/abc3",
+      "views": 14000,
+      "relevanceScore": 0.3
+    },
+    {
+      "url": "www.wikipedia.com/abc5",
+      "views": 15000,
+      "relevanceScore": 0.5
+    }
+  ]
+}
