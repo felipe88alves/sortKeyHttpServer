@@ -33,7 +33,7 @@ The services are provided over the following URL's:
 
 The optional parameter `limit` can be used to limit the return. The optional parameter is only applicable to the Sorted URL's
 - Limit Sorted by Relevance Score: `http://localhost/sortkey/relevanceScore?limit=3`
-- Limit Sorted by Views: `http://localhost/sortkey/views?=5`
+- Limit Sorted by Views: `http://localhost/sortkey/views?limit=5`
 
 A full list of instructions can be obtained by running `make help` in the root directory:
 
