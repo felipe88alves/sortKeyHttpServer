@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"os"
 	"path/filepath"
 	"reflect"
 	"runtime"
@@ -36,8 +37,9 @@ func TestHandleRawStats(t *testing.T) {
 		testUrlDataSourceFile = urlDataSourceFile
 		testFolderDataSource  = "testHandleRawStats"
 
-		successDir = "success"
-		emptyDir   = "empty-dir"
+		successDir   = "success"
+		emptyDir     = "empty-dir"
+		emptyDirFile = ".gitkeep"
 
 		urlPathRoot = "/"
 	)
@@ -81,6 +83,13 @@ func TestHandleRawStats(t *testing.T) {
 			rec := httptest.NewRecorder()
 
 			relPath := filepath.Join(apiTestRelativePath, testFolderDataSource, tc.inputTestFileDir)
+
+			if tc.inputTestFileDir == emptyDir {
+				fullFilePath := filepath.Join(serviceTestBasePath, relPath, emptyDirFile)
+				os.Remove(fullFilePath)
+				defer os.Create(fullFilePath)
+			}
+
 			svc, err := newUrlStatDataService(testUrlDataSourceFile, relPath)
 			if err != nil {
 				t.Fatalf("Test Failed: %v Failed to create UrlStatDataService. Error: %v",

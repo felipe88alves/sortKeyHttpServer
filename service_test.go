@@ -424,13 +424,14 @@ func TestGetUrlStatsDataHttpEndpointsFromFile_Fail(t *testing.T) {
 
 		testCtx context.Context = context.Background()
 
-		emptyDir = "empty-dir"
+		emptyDir     = "empty-dir"
+		emptyDirFile = ".gitkeep"
 		// invalidFileExtension = "invalid-file-extension"
 		invalidUrlFormat = "invalid-url-format"
 	)
 	testCases := []struct {
 		name               string
-		inputTestFileDir   string
+		inputTestDir       string
 		inputTestFileCount int
 		inputBasePath      string
 		expectedUrlStats   *urlStatData
@@ -438,7 +439,7 @@ func TestGetUrlStatsDataHttpEndpointsFromFile_Fail(t *testing.T) {
 	}{
 		{
 			name:               "Invalid Url Format",
-			inputTestFileDir:   filepath.Join(testFolderDataSource, invalidUrlFormat),
+			inputTestDir:       invalidUrlFormat,
 			inputTestFileCount: 2,
 			expectedErr:        true,
 		},
@@ -455,9 +456,9 @@ func TestGetUrlStatsDataHttpEndpointsFromFile_Fail(t *testing.T) {
 		// 	expectedErr:           true,
 		// },
 		{
-			name:             "Empty []fs.DirEntry",
-			inputTestFileDir: filepath.Join(testFolderDataSource, emptyDir),
-			expectedErr:      true,
+			name:         "Empty []fs.DirEntry",
+			inputTestDir: emptyDir,
+			expectedErr:  true,
 		},
 	}
 
@@ -465,7 +466,12 @@ func TestGetUrlStatsDataHttpEndpointsFromFile_Fail(t *testing.T) {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-			fullPath := filepath.Join(serviceTestBasePath, serviceTestRelativePath, tc.inputTestFileDir)
+			fullPath := filepath.Join(serviceTestBasePath, serviceTestRelativePath, testFolderDataSource, tc.inputTestDir)
+			if tc.inputTestDir == emptyDir {
+				fullFilePath := filepath.Join(fullPath, emptyDirFile)
+				os.Remove(fullFilePath)
+				defer os.Create(fullFilePath)
+			}
 			dirEntries, err := os.ReadDir(fullPath)
 			if err != nil {
 				t.Fatalf("Internal Testing error: %v", err)
@@ -478,7 +484,7 @@ func TestGetUrlStatsDataHttpEndpointsFromFile_Fail(t *testing.T) {
 
 			urlStatService := urlStatDataService{
 				dataSourceType: testUrlDataSourceFile,
-				dataSourcePath: filepath.Join(serviceTestRelativePath, tc.inputTestFileDir),
+				dataSourcePath: filepath.Join(serviceTestRelativePath, tc.inputTestDir),
 			}
 			result, resultErr := urlStatService.getUrlStatsDataHttpEndpointsFromFile(testCtx, dirEntries, serviceTestBasePath)
 			assert := reflect.DeepEqual(result, tc.expectedUrlStats)
@@ -503,13 +509,14 @@ func TestGetUrlStatsDataFromFile(t *testing.T) {
 		testFolderDataSource  = "testGetUrlStatsDataFromFile"
 
 		emptyDir                  = "empty-dir"
+		emptyDirFile              = ".gitkeep"
 		invalidJsonFormat         = "invalid-json-format"
 		validJsonFormat           = "valid-json-format"
 		validAndInvalidJsonFormat = "valid-and-invalid-json-format"
 	)
 	testCases := []struct {
 		name               string
-		inputTestFileDir   string
+		inputTestDir       string
 		inputTestFileCount int
 		inputBasePath      string
 		expectedUrlStats   *urlStatData
@@ -517,7 +524,7 @@ func TestGetUrlStatsDataFromFile(t *testing.T) {
 	}{
 		{
 			name:               "Valid and Invalid Json Format",
-			inputTestFileDir:   filepath.Join(testFolderDataSource, validAndInvalidJsonFormat),
+			inputTestDir:       validAndInvalidJsonFormat,
 			inputTestFileCount: 2,
 			//`{"data":[{"url":"www.example.com/abc1","views":1000,"relevanceScore":0.5}]}`,
 			expectedUrlStats: &urlStatData{
@@ -533,7 +540,7 @@ func TestGetUrlStatsDataFromFile(t *testing.T) {
 		},
 		{
 			name:               "Valid Json Format",
-			inputTestFileDir:   filepath.Join(testFolderDataSource, validJsonFormat),
+			inputTestDir:       validJsonFormat,
 			inputTestFileCount: 1,
 			//`{"data":[{"url":"www.example.com/abc1","views":1000,"relevanceScore":0.5}]}`,
 			expectedUrlStats: &urlStatData{
@@ -549,7 +556,7 @@ func TestGetUrlStatsDataFromFile(t *testing.T) {
 		},
 		{
 			name:               "Invalid Json Format",
-			inputTestFileDir:   filepath.Join(testFolderDataSource, invalidJsonFormat),
+			inputTestDir:       invalidJsonFormat,
 			inputTestFileCount: 1,
 			expectedErr:        true,
 		},
@@ -560,17 +567,22 @@ func TestGetUrlStatsDataFromFile(t *testing.T) {
 		// 	expectedErr:           true,
 		// },
 		{
-			name:             "Empty []fs.DirEntry",
-			inputTestFileDir: filepath.Join(testFolderDataSource, emptyDir),
-			expectedErr:      true,
+			name:         "Empty []fs.DirEntry",
+			inputTestDir: emptyDir,
+			expectedErr:  true,
 		},
 	}
 
 	for _, tc := range testCases {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
-			t.Parallel()
-			fullPath := filepath.Join(serviceTestBasePath, serviceTestRelativePath, tc.inputTestFileDir)
+			// t.Parallel()
+			fullPath := filepath.Join(serviceTestBasePath, serviceTestRelativePath, testFolderDataSource, tc.inputTestDir)
+			if tc.inputTestDir == emptyDir {
+				fullFilePath := filepath.Join(fullPath, emptyDirFile)
+				os.Remove(fullFilePath)
+				defer os.Create(fullFilePath)
+			}
 			dirEntries, err := os.ReadDir(fullPath)
 			if err != nil {
 				t.Fatalf("Internal Testing error: %v", err)
@@ -583,7 +595,7 @@ func TestGetUrlStatsDataFromFile(t *testing.T) {
 
 			urlStatService := urlStatDataService{
 				dataSourceType: testUrlDataSourceFile,
-				dataSourcePath: filepath.Join(serviceTestRelativePath, tc.inputTestFileDir),
+				dataSourcePath: filepath.Join(serviceTestRelativePath, testFolderDataSource, tc.inputTestDir),
 			}
 			result, resultErr := urlStatService.getUrlStatsDataFromFile(dirEntries, serviceTestBasePath)
 			assert := reflect.DeepEqual(result, tc.expectedUrlStats)

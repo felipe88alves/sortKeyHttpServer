@@ -143,6 +143,7 @@ func TestFilterFiles(t *testing.T) {
 		testFolderDataSource = "testFilterFiles"
 
 		emptyDir         = "empty-dir"
+		emptyDirFile     = ".gitkeep"
 		filteredFilesDir = "filtered-files"
 
 		successFileNameJson = "test.json"
@@ -183,6 +184,11 @@ func TestFilterFiles(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 			fullPath := filepath.Join(fileTestBasePath, fileTestRelativePath, testFolderDataSource, tc.inputTestDir)
+			if tc.inputTestDir == emptyDir {
+				fullFilePath := filepath.Join(fullPath, emptyDirFile)
+				os.Remove(fullFilePath)
+				defer os.Create(fullFilePath)
+			}
 			dirEntries, err := os.ReadDir(fullPath)
 			if err != nil {
 				t.Fatalf("Internal Testing error: %v", err)
