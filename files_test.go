@@ -143,7 +143,7 @@ func TestFilterFiles(t *testing.T) {
 		testFolderDataSource = "testFilterFiles"
 
 		emptyDir         = "empty-dir"
-		emptyDirFile     = ".gitkeep"
+		gitKeepFile      = ".gitkeep"
 		filteredFilesDir = "filtered-files"
 
 		successFileNameJson = "test.json"
@@ -185,7 +185,8 @@ func TestFilterFiles(t *testing.T) {
 			t.Parallel()
 			fullPath := filepath.Join(fileTestBasePath, fileTestRelativePath, testFolderDataSource, tc.inputTestDir)
 			if tc.inputTestDir == emptyDir {
-				fullFilePath := filepath.Join(fullPath, emptyDirFile)
+				// Remove .gitkeep file and create it again once the test is finished
+				fullFilePath := filepath.Join(fullPath, gitKeepFile)
 				os.Remove(fullFilePath)
 				defer os.Create(fullFilePath)
 			}

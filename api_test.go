@@ -37,9 +37,9 @@ func TestHandleRawStats(t *testing.T) {
 		testUrlDataSourceFile = urlDataSourceFile
 		testFolderDataSource  = "testHandleRawStats"
 
-		successDir   = "success"
-		emptyDir     = "empty-dir"
-		emptyDirFile = ".gitkeep"
+		successDir  = "success"
+		emptyDir    = "empty-dir"
+		gitKeepFile = ".gitkeep"
 
 		urlPathRoot = "/"
 	)
@@ -85,7 +85,8 @@ func TestHandleRawStats(t *testing.T) {
 			relPath := filepath.Join(apiTestRelativePath, testFolderDataSource, tc.inputTestFileDir)
 
 			if tc.inputTestFileDir == emptyDir {
-				fullFilePath := filepath.Join(serviceTestBasePath, relPath, emptyDirFile)
+				// Remove .gitkeep file and create it again once the test is finished
+				fullFilePath := filepath.Join(serviceTestBasePath, relPath, gitKeepFile)
 				os.Remove(fullFilePath)
 				defer os.Create(fullFilePath)
 			}
