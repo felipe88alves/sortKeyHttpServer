@@ -108,10 +108,6 @@ deploy-docker-http: ## Deploy urlstats app locally using docker.
 deploy-bin: build ## Deploy urlstats app locally using go binary.
 	DATA_COLLECTION_METHOD=${DATASOURCEMETHOD} ./bin/${IMG}
 
-.PHONY: undeploy-bin
-undeploy-bin: ## Uneploy urlstats app locally using go binary.
-	kubectl delete -f resources/k8s-manifests/urlstats-deployment.yaml
-
 ##@ E2E Deployment
 .PHONY: all
 all: test-unit docker-build kind-delete-cluster kind-create-cluster kind-load-docker-image deploy-kustomize ## build docker image, provision k8's kinD cluster and deploy urlstats webservice using kustomize
@@ -142,7 +138,7 @@ clean-docker-containers: ## Removes all docker containers. WARNING: also removes
 ##@ Build Dependencies
 
 ## Location to install dependencies to
-LOCALBIN ?= $(shell pwd)/bin
+LOCALBIN ?= $(shell pwd)/bin/3pp
 $(LOCALBIN):
 	mkdir -p $(LOCALBIN)
 

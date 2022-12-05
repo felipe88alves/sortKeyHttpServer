@@ -1,6 +1,6 @@
 # sortKeyHttpServer
 
-> This project scrapes statistics for websites provided in json format. It then processes and returns the data in acordance with user-provided inputs.
+> This project scrapes statistics for websites provided in JSON format. It then processes and returns the data in accordance with user-provided inputs.
 
 ## Table of contents
 
@@ -22,8 +22,8 @@
 ## Getting Started
 
 The application can collect the URL statistics data from a file or a series of HTTP endpoints. The URL statistics information is provided in a JSON format.
-The Data Collection Method and the Data Collection Source can be overriden using the Environment Variables `DATA_COLLECTION_METHOD` and `DATA_COLLECTION_PATH`.
-The default Data Collection Method is `http`, but it can be overriden to `file`.
+The Data Collection Method and the Data Collection Source can be overridden using the Environment Variables `DATA_COLLECTION_METHOD` and `DATA_COLLECTION_PATH`.
+The default Data Collection Method is `http`, but it can be overridden to `file`.
 
 After deploying the application, it will be available for access at localhost in either port 5000 or 80 (depending on the deployment method).
 The services are provided over the following URL's:
@@ -68,7 +68,6 @@ Deployment App
   deploy-docker-file  Deploy urlstats app locally using docker.
   deploy-docker-http  Deploy urlstats app locally using docker.
   deploy-bin       Deploy urlstats app locally using go binary.
-  undeploy-bin     Uneploy urlstats app locally using go binary.
 
 E2E Deployment
   all              build docker image, provision k8's kinD cluster and deploy urlstats webservice using kustomize
@@ -90,8 +89,8 @@ Quick deployment can be achieved by running `make all`, this creates a KinD clus
 See [Deployment](#deployment) section for more deployment options.
 ## Prerequisites
 
-This project relies solely on the go standard library for it's application.
-For deployment purposes, Docker must be installed, install them form [here](https://www.docker.com/products/docker-desktop/).
+This project relies solely on the go standard library.
+For deployment purposes, Docker must be installed. Install from [here](https://www.docker.com/products/docker-desktop/).
 
 Installation of Kustomize and KinD are managed automatically with the Makefile and their binaries are used when necessary. The binaries for managed third-party applications can be found in the `bin/` folder.
 
@@ -108,7 +107,7 @@ In the root directory:
 make run
 ```
 
-Access the applicaiton using port 5000:
+Access the application using port 5000:
 - `http://localhost:5000/`
 
 ### Installing and Running - Go binary
@@ -120,13 +119,12 @@ make build
 make deploy-bin
 ```
 
-Access the applicaiton using port 5000:
+Access the application using port 5000:
 - `http://localhost:5000/`
 
 ## Running the tests
 
-For testing purposes it is preferred to run the application using the `file` Data Collection Method.
-<!-- How to run using only go test ./... -->
+For testing purposes, it is preferred to run the application using the `file` Data Collection Method.
 
 ### Running tests from terminal
 
@@ -159,22 +157,6 @@ Add the following section to your `launch.json`:
 }
 ```
 
-### End to end tests
-
-Explain what these tests test and why
-
-```
-Give an example
-```
-
-### Coding style tests
-
-Explain what these tests test and why
-
-```
-Give an example
-```
-
 ## Deployment
 
 A number of deployment options have been provided.
@@ -199,7 +181,7 @@ make deploy-docker-file
 The application can be accessed using port 80:
 - `http://localhost/`
 
-The application will bind to the teminal and provide live logs.
+The application will bind to the terminal and provide live logs.
 Type `Ctrl+C` to stop the docker deployment.
 
 ### K8s Deployment using yaml manifests
@@ -242,7 +224,7 @@ make kind-delete-cluster
 
 ## Contributing
 
-1. Fork it (<https://github.com/yourname/yourproject/fork>)
+1. Fork it (<https://github.com/felipe88alves/sortKeyHttpServer/fork>)
 2. Create your feature branch (`git checkout -b feature/fooBar`)
 3. Commit your changes (`git commit -am 'Add some fooBar'`)
 4. Push to the branch (`git push origin feature/fooBar`)
