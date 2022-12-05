@@ -1,8 +1,21 @@
 package main
 
-type UrlStatData struct {
-	Data []urlStat `json:"data,omitempty"`
+import "fmt"
+
+type urlStatData struct {
+	Data urlStatSlice `json:"data,omitempty"`
 }
+
+type urlStatSlice []*urlStat
+
+func (u urlStatSlice) String() string {
+	var s []urlStat
+	for _, d := range u {
+		s = append(s, *d)
+	}
+	return fmt.Sprintf("%+v", s)
+}
+
 type urlStat struct {
 	Url            string  `json:"url,omitempty"`
 	Views          int     `json:"views,omitempty"`
@@ -10,6 +23,6 @@ type urlStat struct {
 }
 
 type responseUrlStats struct {
-	SortedUrlStats []urlStat `json:"data"`
-	Count          int       `json:"count"`
+	SortedUrlStats *urlStatSlice `json:"data"`
+	Count          int           `json:"count"`
 }

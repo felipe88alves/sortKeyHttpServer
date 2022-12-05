@@ -6,17 +6,17 @@ import (
 	"time"
 )
 
-type LoggingService struct {
-	next Service
+type loggingService struct {
+	next service
 }
 
-func NewLoggingService(next Service) Service {
-	return &LoggingService{
+func newLoggingService(next service) service {
+	return &loggingService{
 		next: next,
 	}
 }
 
-func (lS *LoggingService) getUrlStatsData(ctx context.Context) (data *UrlStatData, err error) {
+func (lS *loggingService) getUrlStatsData(ctx context.Context) (data *urlStatData, err error) {
 	defer func(start time.Time) {
 		if data != nil {
 			fmt.Printf("Data:%+v Error:%v took:%v\n", data.Data, err, time.Since(start))

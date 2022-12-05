@@ -7,6 +7,7 @@ import (
 	"io/fs"
 	"log"
 	"net/http"
+	"os"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -16,15 +17,28 @@ import (
 const (
 	urlDataSourceHttp = "http"
 	urlDataSourceFile = "file"
+
+	validUrlPrefixProtocolHttp  = "http://"
+	validUrlPrefixProtocolHttps = "https://"
+
+	validUrlSuffixFileTypeCfg  = ".cfg"
+	validUrlSuffixFileTypeJson = ".json"
 )
 
 var (
 	defaultHttpDataSource = "config"
 	defaultFileDataSource = filepath.Join("resources", "raw-json-files")
+
+	retryAttempts  = 5
+	backoffPeriods = []time.Duration{
+		1 * time.Second,
+		5 * time.Second,
+		10 * time.Second,
+	}
 )
 
-type Service interface {
-	getUrlStatsData(context.Context) (*UrlStatData, error)
+type service interface {
+	getUrlStatsData(context.Context) (*urlStatData, error)
 }
 
 type urlStatDataService struct {
@@ -32,26 +46,32 @@ type urlStatDataService struct {
 	dataSourcePath string
 }
 
-func newUrlStatDataService(dataSourceType string, dataSourcePath string) Service {
+func newUrlStatDataService(dataSourceType string, dataSourcePath string) (service, error) {
+	var err error
+
 	dataSourceType = getDataSourceType(dataSourceType)
-	dataSourcePath = getDataSource(dataSourceType, dataSourcePath)
+	dataSourcePath, err = getDataSource(dataSourceType, dataSourcePath)
+	if err != nil {
+		return nil, err
+	}
 	return &urlStatDataService{
 		dataSourceType: dataSourceType,
 		dataSourcePath: dataSourcePath,
-	}
+	}, nil
 }
 
-func (uS *urlStatDataService) getUrlStatsData(ctx context.Context) (*UrlStatData, error) {
+func (uS *urlStatDataService) getUrlStatsData(ctx context.Context) (*urlStatData, error) {
 	var err error
-	basePath, err := mustGetBasePath()
+	wd, err := os.Getwd()
 	if err != nil {
 		return nil, err
 	}
+	basePath := mustGetBasePath(wd)
 	files, err := getFilesInRelativePath(uS.dataSourcePath, basePath)
 	if err != nil {
 		return nil, err
-	} else if files == nil {
-		return nil, fmt.Errorf("no URL Endpoint was loaded from configured Data Sources")
+	} else if len(files) == 0 {
+		return nil, fmt.Errorf("no files were loaded from the configured Data Sources")
 	}
 	switch uS.dataSourceType {
 	case urlDataSourceHttp:
@@ -73,17 +93,16 @@ func getDataSourceType(dataSourceType string) string {
 		log.Printf("WARNING: Do not use this setting in produciton. Overriding Data Source to custom value: %v", urlDataSourceFile)
 		return dataSourceType
 	default:
+		// If not defined. Defaults to fetching data from URLs (HTTP Endpoints)
 		log.Printf("Error: Invalid Data Source Selected: %v. Using default value: %v", dataSourceType, urlDataSourceHttp)
 		return urlDataSourceHttp
 	}
-	// If not defined. Defaults to fetching data from URLs (HTTP Endpoints)
-
 }
 
-func getDataSource(dataSourceType string, dataSourcePath string) string {
+func getDataSource(dataSourceType, dataSourcePath string) (string, error) {
 
 	if dataSourcePath != "" {
-		return dataSourcePath
+		return dataSourcePath, nil
 	}
 	switch dataSourceType {
 	case urlDataSourceHttp:
@@ -91,18 +110,18 @@ func getDataSource(dataSourceType string, dataSourcePath string) string {
 	case urlDataSourceFile:
 		dataSourcePath = defaultFileDataSource
 	default:
-		panic("Unsupported Data Source Type")
+		return "", fmt.Errorf("unsupported Data Source Type: %s", dataSourceType)
 	}
-	return dataSourcePath
+	return dataSourcePath, nil
 }
 
-func (uS *urlStatDataService) getUrlStatsDataHttpEndpointsFromFile(ctx context.Context, files []fs.DirEntry, basePath string) (*UrlStatData, error) {
-	urlStats := new(UrlStatData)
+func (uS *urlStatDataService) getUrlStatsDataHttpEndpointsFromFile(ctx context.Context, files []fs.DirEntry, basePath string) (*urlStatData, error) {
+	urlStats := new(urlStatData)
 	errCount := 0
 
 	for _, file := range files {
-		fullPath := filepath.Join(uS.dataSourcePath, file.Name())
-		fileName, err := mustGetFile(fullPath, basePath)
+		relativeFilePath := filepath.Join(uS.dataSourcePath, file.Name())
+		fileName, err := mustGetFile(basePath, relativeFilePath)
 		if err != nil {
 			return nil, err
 		}
@@ -130,12 +149,12 @@ func (uS *urlStatDataService) getUrlStatsDataHttpEndpointsFromFile(ctx context.C
 			case error:
 				log.Printf("Error: %v", r)
 				errCount++
-			case *UrlStatData:
+			case *urlStatData:
 				if r != nil {
 					urlStats.Data = append(urlStats.Data, r.Data...)
 				}
 			default:
-				log.Print("HTTP Data Source Endpoint returned an Unsupported type")
+				log.Print("Error: HTTP Data Source Endpoint returned an Unsupported Type")
 				errCount++
 			}
 		}
@@ -151,13 +170,6 @@ func getUrlStatsDataHttp(urlAddr string, ch chan<- interface{}, wg *sync.WaitGro
 		r       *http.Response
 		success bool
 		err     error
-
-		retryAttempts  = 5
-		backoffPeriods = []time.Duration{
-			1 * time.Second,
-			// 5 * time.Second,
-			// 10 * time.Second,
-		}
 	)
 	defer wg.Done()
 
@@ -185,36 +197,42 @@ retry_loop:
 	}
 
 	defer r.Body.Close()
-	urlStats := new(UrlStatData)
+	urlStats := new(urlStatData)
 	json.NewDecoder(r.Body).Decode(urlStats)
 	ch <- urlStats
 }
 
-func (uS *urlStatDataService) getUrlStatsDataFromFile(files []fs.DirEntry, basePath string) (*UrlStatData, error) {
-	var (
-		urlStats = new(UrlStatData)
-	)
+func (uS *urlStatDataService) getUrlStatsDataFromFile(files []fs.DirEntry, basePath string) (*urlStatData, error) {
+	if len(files) == 0 {
+		return nil, fmt.Errorf("no valid files were found in the configured Data Source Path. Data Source Type: %v", urlDataSourceFile)
+	}
+	urlStats := new(urlStatData)
+
 	for _, file := range files {
-		fullPath := filepath.Join(uS.dataSourcePath, file.Name())
-		fileName, err := mustGetFile(fullPath, basePath)
+		relativeFilePath := filepath.Join(uS.dataSourcePath, file.Name())
+		fileName, err := mustGetFile(basePath, relativeFilePath)
 		if err != nil {
 			return nil, err
 		}
-		urlStatsInstance := UrlStatData{}
+		urlStatsInstance := urlStatData{}
 		if err := json.Unmarshal(fileName, &urlStatsInstance); err != nil {
-			log.Printf("Failed to unmarshal json data from file-based source. File: %v Error: %v", fullPath, err)
+			log.Printf("Failed to unmarshal json data from file-based source. File: %v Error: %v", relativeFilePath, err)
 			// TODO: Investigate: Should we allow the program to continue if one files fails to be loaded?
 			continue
 		}
 		urlStats.Data = append(urlStats.Data, urlStatsInstance.Data...)
 	}
+	if len(urlStats.Data) == 0 {
+		return nil, fmt.Errorf("no valid JSON data was found within the configured Data Source files")
+	}
+
 	return urlStats, nil
 }
 
 func validateUrls(urls []string) ([]string, error) {
 	var validatedUrls []string
 	for _, url := range urls {
-		if strings.HasPrefix(url, "http") && strings.HasSuffix(url, "json") {
+		if isValidUrlPrefixProtocol(url) && isValidUrlSuffixFileType(url) {
 			validatedUrls = append(validatedUrls, url)
 		}
 	}
@@ -222,4 +240,12 @@ func validateUrls(urls []string) ([]string, error) {
 		return nil, fmt.Errorf("no valid urls were found as data source")
 	}
 	return validatedUrls, nil
+}
+
+func isValidUrlPrefixProtocol(url string) bool {
+	return strings.HasPrefix(url, validUrlPrefixProtocolHttp) || strings.HasPrefix(url, validUrlPrefixProtocolHttps)
+}
+
+func isValidUrlSuffixFileType(url string) bool {
+	return strings.HasSuffix(url, validUrlSuffixFileTypeJson)
 }

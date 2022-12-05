@@ -8,42 +8,38 @@ import (
 	"strings"
 )
 
-func getFilesInRelativePath(relativePath string, basePath string) ([]fs.DirEntry, error) {
+func getFilesInRelativePath(relativePath, basePath string) ([]fs.DirEntry, error) {
 	fullPath := filepath.Join(basePath, relativePath)
 	dirEntries, err := os.ReadDir(fullPath)
 	if err != nil {
 		return nil, err
 	}
-	return filterFiles(dirEntries)
+	return filterFiles(dirEntries), nil
 }
 
-func mustGetBasePath() (string, error) {
-	dir, err := os.Getwd()
-	if err != nil {
-		return "", err
-	}
-	for _, err := os.ReadFile(filepath.Join(dir, "go.mod")); err != nil && len(dir) > 1; {
-		dir = filepath.Dir(dir)
-		_, err = os.ReadFile(filepath.Join(dir, "go.mod"))
+func mustGetBasePath(wdir string) string {
+	for _, err := os.ReadFile(filepath.Join(wdir, "go.mod")); err != nil && len(wdir) > 1; {
+		wdir = filepath.Dir(wdir)
+		_, err = os.ReadFile(filepath.Join(wdir, "go.mod"))
 	}
 
-	log.Printf("Base directory: %v", dir)
-	return dir, nil
+	log.Printf("Base directory: %v", wdir)
+	return wdir
 }
 
-func filterFiles(dirEntries []fs.DirEntry) ([]fs.DirEntry, error) {
+func filterFiles(dirEntries []fs.DirEntry) []fs.DirEntry {
 	var files []fs.DirEntry
 	for _, dirEntry := range dirEntries {
 		// TODO: Improve identification of "regular" files. Suggestion: use dirEntry.Type() or dirEntry.Info()
-		if strings.HasSuffix(dirEntry.Name(), "cfg") || strings.HasSuffix(dirEntry.Name(), "json") {
+		if strings.HasSuffix(dirEntry.Name(), validUrlSuffixFileTypeCfg) || strings.HasSuffix(dirEntry.Name(), validUrlSuffixFileTypeJson) {
 			files = append(files, dirEntry)
 		}
 	}
-	return files, nil
+	return files
 }
 
-func mustGetFile(relativePath string, basePath string) ([]byte, error) {
-	absolutePath := filepath.Join(basePath, relativePath)
+func mustGetFile(basePath, relativeFilePath string) ([]byte, error) {
+	absolutePath := filepath.Join(basePath, relativeFilePath)
 	file, err := os.ReadFile(absolutePath)
 	if err != nil {
 		return nil, err

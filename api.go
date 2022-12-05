@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -16,14 +15,15 @@ const (
 
 	relevancescoreOption = "relevanceScore"
 	viewsOption          = "views"
+	limitFilterOption    = "limit"
 )
 
-type ApiServer struct {
-	svc Service
+type apiServer struct {
+	svc service
 }
 
-func NewApiServer(svc Service) *ApiServer {
-	return &ApiServer{
+func newApiServer(svc service) *apiServer {
+	return &apiServer{
 		svc: svc,
 	}
 }
@@ -42,13 +42,13 @@ func makeHttpHandler(f apiFunc) http.HandlerFunc {
 	}
 }
 
-func (s *ApiServer) Start(listenAddr string) error {
-	http.HandleFunc("/", makeHttpHandler(s.handleStats))
+func (s *apiServer) start(listenAddr string) error {
+	http.HandleFunc("/", makeHttpHandler(s.handleRawStats))
 	http.HandleFunc(fmt.Sprintf("/%s/", sortkeyPath), makeHttpHandler(s.handleSortKey))
 	return http.ListenAndServe(listenAddr, nil)
 }
 
-func (s *ApiServer) handleStats(w http.ResponseWriter, r *http.Request) error {
+func (s *apiServer) handleRawStats(w http.ResponseWriter, r *http.Request) error {
 	if r.URL.Path != "/" {
 		return apiError{Err: http.StatusText(http.StatusBadRequest), Status: http.StatusBadRequest}
 	}
@@ -64,7 +64,7 @@ func (s *ApiServer) handleStats(w http.ResponseWriter, r *http.Request) error {
 	switch r.Method {
 	case http.MethodGet:
 		jsonReturnMsg := responseUrlStats{
-			SortedUrlStats: urlStats.Data,
+			SortedUrlStats: &urlStats.Data,
 			Count:          len(urlStats.Data),
 		}
 		writeJson(w, http.StatusOK, jsonReturnMsg)
@@ -76,7 +76,7 @@ func (s *ApiServer) handleStats(w http.ResponseWriter, r *http.Request) error {
 	}
 }
 
-func (s *ApiServer) handleSortKey(w http.ResponseWriter, r *http.Request) error {
+func (s *apiServer) handleSortKey(w http.ResponseWriter, r *http.Request) error {
 	urlPathSegments := strings.Split(r.URL.Path, fmt.Sprintf("%s/", sortkeyPath))
 	if len(urlPathSegments) == 1 || len(urlPathSegments) > 2 {
 		return apiError{Err: http.StatusText(http.StatusBadRequest), Status: http.StatusBadRequest}
@@ -98,18 +98,20 @@ func (s *ApiServer) handleSortKey(w http.ResponseWriter, r *http.Request) error 
 	switch r.Method {
 	case http.MethodGet:
 		sortOption := urlPathSegments[0]
-		urlStatResponse, err := mergeSort(urlStats.Data, sortOption)
+		urlStatResponse, err := mergeSort(&urlStats.Data, sortOption)
 		if err != nil {
-			log.Printf("error performing merge sort algorithm. Sort Option: %v, Error: %v", sortOption, err)
 			return apiError{Err: err.Error(), Status: http.StatusInternalServerError}
 		}
 
 		limitValue := getLimitValue(r.URL.Query())
-		urlStatResponse = limitReponse(urlStatResponse, limitValue)
+		urlStatResponse, err = limitReponse(urlStatResponse, limitValue)
+		if err != nil {
+			return apiError{Err: err.Error(), Status: http.StatusInternalServerError}
+		}
 
 		jsonReturnMsg := responseUrlStats{
 			SortedUrlStats: urlStatResponse,
-			Count:          len(urlStatResponse),
+			Count:          len(*urlStatResponse),
 		}
 		writeJson(w, http.StatusOK, jsonReturnMsg)
 		return nil
@@ -119,81 +121,95 @@ func (s *ApiServer) handleSortKey(w http.ResponseWriter, r *http.Request) error 
 }
 
 func writeJson(w http.ResponseWriter, httpStatus int, v any) error {
+	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(httpStatus)
-	w.Header().Add("Content-Type", "application/json")
 	return json.NewEncoder(w).Encode(v)
 }
 
-func mergeSort(items []urlStat, sortBy string) ([]urlStat, error) {
+func mergeSort(items *urlStatSlice, sortBy string) (*urlStatSlice, error) {
+	if items == nil {
+		return nil, fmt.Errorf("null pointer exception. Found when sorting Url Data")
+	}
 	sortBy = getSortOption(sortBy)
 
-	if len(items) <= 1 {
+	if len(*items) <= 1 {
 		return items, nil
 	}
-	first, err := mergeSort(items[:len(items)/2], sortBy)
+	first := (*items)[:len(*items)/2]
+	firstPtr, err := mergeSort(&first, sortBy)
 	if err != nil {
 		return nil, err
 	}
-	second, err := mergeSort(items[len(items)/2:], sortBy)
+	second := (*items)[len(*items)/2:]
+	secondPtr, err := mergeSort(&second, sortBy)
 	// The error handling below unecessary wih current implementation. Leaving it anyway for robustness.
 	// mergeSort error is caused by sortOption, so it would have already been returned in the first call to mergeSort
 	// This comment block can be removed if additional error handling is added to mergeSort
 	if err != nil {
 		return nil, err
 	}
-	return merge(sortBy, first, second)
+	return merge(sortBy, firstPtr, secondPtr)
 }
 
-func merge(sortBy string, first, last []urlStat) ([]urlStat, error) {
-	final := []urlStat{}
+func merge(sortBy string, first, last *urlStatSlice) (*urlStatSlice, error) {
+	final := new(urlStatSlice)
 	i := 0
 	j := 0
-	for i < len(first) && j < len(last) {
-		isSorted, err := isSortedByOption(sortBy, first[i], last[j])
+	for i < len(*first) && j < len(*last) {
+		isSorted, err := isSortedByOption(sortBy, (*first)[i], (*last)[j])
 		if err != nil {
 			return nil, err
 		}
 
 		if isSorted {
-			final = append(final, first[i])
+			*final = append(*final, (*first)[i])
 			i++
 		} else {
-			final = append(final, last[j])
+			*final = append(*final, (*last)[j])
 			j++
 		}
 	}
 
-	for ; i < len(first); i++ {
-		final = append(final, first[i])
+	for ; i < len(*first); i++ {
+		*final = append(*final, (*first)[i])
 	}
-	for ; j < len(last); j++ {
-		final = append(final, last[j])
+	for ; j < len(*last); j++ {
+		*final = append(*final, (*last)[j])
 	}
 	return final, nil
 
 }
 
-func isSortedByOption(sortByOption string, first, last urlStat) (bool, error) {
-	const ERROR_INVALID_SORT_OPTION = "invalid sort option selected"
+func isSortedByOption(sortByOption string, first, last *urlStat) (bool, error) {
+	const errInvalidSortOption = "invalid sort option selected"
 
 	// Do equals need to be considered? Any logic to solve ties
 	switch sortByOption {
 	case relevancescoreOption:
-		return isSortedByRelevanceScore(first, last), nil
+		return isSortedByRelevanceScoreAscending(first, last)
 	case viewsOption:
-		return isSortedByViewsScore(first, last), nil
+		return isSortedByViewsScoreAscending(first, last)
 	default:
-		return false, fmt.Errorf("%v %v", ERROR_INVALID_SORT_OPTION, sortByOption)
+		return false, fmt.Errorf("%v %v", errInvalidSortOption, sortByOption)
 	}
 }
 
-func isSortedByRelevanceScore(first, last urlStat) bool {
-	return first.RelevanceScore < last.RelevanceScore
+func isSortedByRelevanceScoreAscending(first, last *urlStat) (bool, error) {
+	if first == nil || last == nil {
+		return false, fmt.Errorf("null pointer exception. Found when sorting Views in ascending order")
+	}
+	// WARNING: Empty RelevanceScore is treated as normal 0 value
+	return first.RelevanceScore < last.RelevanceScore, nil
 }
 
-func isSortedByViewsScore(first, last urlStat) bool {
-	return first.Views < last.Views
+func isSortedByViewsScoreAscending(first, last *urlStat) (bool, error) {
+	if first == nil || last == nil {
+		return false, fmt.Errorf("null pointer exception. Found when sorting Views in ascending order")
+	}
+	// WARNING: Empty Views are treated as normal 0 value
+	return first.Views < last.Views, nil
 }
+
 func getSortOption(sortOption string) string {
 	if sortOption == "" ||
 		(sortOption != relevancescoreOption && sortOption != viewsOption) {
@@ -202,17 +218,20 @@ func getSortOption(sortOption string) string {
 	return sortOption
 }
 func getLimitValue(limitValueSegment url.Values) int {
-	limitFilter := "limit"
-	limitValue, err := strconv.Atoi(limitValueSegment.Get(limitFilter))
+	limitValue, err := strconv.Atoi(limitValueSegment.Get(limitFilterOption))
 	if err != nil || limitValue <= 0 {
 		limitValue = -1
 	}
 	return limitValue
 }
 
-func limitReponse(urlStatSlice []urlStat, limit int) []urlStat {
-	if limit <= 0 || limit > len(urlStatSlice) {
-		return urlStatSlice
+func limitReponse(u *urlStatSlice, limit int) (*urlStatSlice, error) {
+	if u == nil {
+		return nil, fmt.Errorf("null pointer exception. Found when filtering response using Limit Option")
 	}
-	return urlStatSlice[:limit]
+	if limit <= 0 || limit > len(*u) {
+		return u, nil
+	}
+	*u = (*u)[:limit]
+	return u, nil
 }

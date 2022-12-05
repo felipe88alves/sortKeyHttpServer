@@ -6,17 +6,20 @@ import (
 )
 
 const (
-	EnvVarUrlSource = "DATA_COLLECTION_METHOD"
-	EnvVarUrlPath   = "DATA_COLLECTION_PATH"
+	envVarUrlSource = "DATA_COLLECTION_METHOD"
+	envVarUrlPath   = "DATA_COLLECTION_PATH"
 )
 
 func main() {
-	dataSourceType := os.Getenv(EnvVarUrlSource)
-	dataSourcePath := os.Getenv(EnvVarUrlPath)
+	dataSourceType := os.Getenv(envVarUrlSource)
+	dataSourcePath := os.Getenv(envVarUrlPath)
 
-	svc := newUrlStatDataService(dataSourceType, dataSourcePath)
-	svc = NewLoggingService(svc)
+	svc, err := newUrlStatDataService(dataSourceType, dataSourcePath)
+	if err != nil {
+		panic(err)
+	}
+	svc = newLoggingService(svc)
 
-	apiServer := NewApiServer(svc)
-	log.Fatal(apiServer.Start(":5000"))
+	apiServer := newApiServer(svc)
+	log.Fatal(apiServer.start(":5000"))
 }
