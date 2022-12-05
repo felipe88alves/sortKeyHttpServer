@@ -48,11 +48,11 @@ pre-test: fmt vet
 test-unit: pre-test --unit
 
 --unit:
-	go test ./... -coverprofile cover.out
+	go test -race . -coverprofile cover.out
 
 .PHONY: run
 run: fmt vet ## Run the webservice from host.
-	go run ./...
+	go run .
 
 ##@ Build
 

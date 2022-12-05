@@ -2,10 +2,14 @@ package main
 
 import (
 	"io/fs"
-	"log"
 	"os"
 	"path/filepath"
 	"strings"
+)
+
+const (
+	validUrlSuffixFileTypeCfg  = ".cfg"
+	validUrlSuffixFileTypeJson = ".json"
 )
 
 func getFilesInRelativePath(relativePath, basePath string) ([]fs.DirEntry, error) {
@@ -22,8 +26,6 @@ func mustGetBasePath(wdir string) string {
 		wdir = filepath.Dir(wdir)
 		_, err = os.ReadFile(filepath.Join(wdir, "go.mod"))
 	}
-
-	log.Printf("Base directory: %v", wdir)
 	return wdir
 }
 
