@@ -11,22 +11,8 @@ else
 GOBIN=$(shell go env GOBIN)
 endif
 
-
-DATASOURCE ?= file
+DATASOURCEMETHOD ?= file
 DOCKER_PORT ?= 80
-
-# Setting SHELL to bash allows bash commands to be executed by recipes.
-# This is a requirement for 'setup-envtest.sh' in the test target.
-# Options are set to exit when a recipe line exits non-zero or a piped command fails.
-SHELL = /usr/bin/env bash -o pipefail
-.SHELLFLAGS = -ec
-
-.PHONY: all ## build docker image, provision k8's kinD cluster and deploy urlstats webservice using kustomize
-all : test-unit docker-build kind-delete-cluster kind-create-cluster kind-load-docker-image deploy-kustomize
-
-.PHONY: clean ## removes the bin directory
-clean : 
-	rm -rf ./bin
 
 ##@ General
 
@@ -62,7 +48,7 @@ pre-test: fmt vet
 test-unit: pre-test --unit
 
 --unit:
-	URLSTATS_DATASOURCE=${DATASOURCE} go test ./... -coverprofile cover.out
+	go test ./... -coverprofile cover.out
 
 .PHONY: run
 run: fmt vet ## Run the webservice from host.
@@ -120,11 +106,15 @@ deploy-docker-http: ## Deploy urlstats app locally using docker.
 
 .PHONY: deploy-bin
 deploy-bin: build ## Deploy urlstats app locally using go binary.
-	URLSTATS_DATASOURCE=${DATASOURCE} ./bin/${IMG}
+	DATA_COLLECTION_METHOD=${DATASOURCEMETHOD} ./bin/${IMG}
 
 .PHONY: undeploy-bin
 undeploy-bin: ## Uneploy urlstats app locally using go binary.
 	kubectl delete -f resources/k8s-manifests/urlstats-deployment.yaml
+
+##@ E2E Deployment
+.PHONY: all
+all: test-unit docker-build kind-delete-cluster kind-create-cluster kind-load-docker-image deploy-kustomize ## build docker image, provision k8's kinD cluster and deploy urlstats webservice using kustomize
 
 ##@ Support/Troubleshoot
 .PHONY: kind-list-loaded-images
@@ -134,6 +124,20 @@ kind-list-loaded-images: --kind ## List Docker images loaded to Kind k8s cluster
 .PHONY: wsl2-start-docker-daemon ## Usefull if docker is installed locally in wsl2
 wsl2-start-docker-daemon: ## Start docker daemon in wsl2.
 	./resources/scripts/wsl2_start_docker_daemon.sh
+
+##@ Cleanup
+
+.PHONY: clean-bin
+clean-bin: ## Removes the bin directory
+	rm -rf ./bin
+
+.PHONY: clean-docker-images
+clean-docker-images: ## Removes all docker images
+	docker rmi -f $(shell docker images -aq)
+
+.PHONY: clean-docker-containers
+clean-docker-containers: ## Removes all docker containers. WARNING: also removes running containers.
+	docker rm -vf $(shell docker ps -aq)
 
 ##@ Build Dependencies
 

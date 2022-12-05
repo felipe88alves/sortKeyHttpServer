@@ -22,8 +22,8 @@
 ## Getting Started
 
 The application can collect the URL statistics data from a file or a series of HTTP endpoints. The URL statistics information is provided in a JSON format.
-The Data Collection Method and the Data Collection Source can be overriden using the Environment Variables `DATA_COLLECTION_METHOD` and `DATA_COLLECTION_PATH`. 
-The default Data Collection Method is `http`, but it can be overriden to `file`. 
+The Data Collection Method and the Data Collection Source can be overriden using the Environment Variables `DATA_COLLECTION_METHOD` and `DATA_COLLECTION_PATH`.
+The default Data Collection Method is `http`, but it can be overriden to `file`.
 
 After deploying the application, it will be available for access at localhost in either port 5000 or 80 (depending on the deployment method).
 The services are provided over the following URL's:
@@ -35,6 +35,57 @@ The optional parameter `limit` can be used to limit the return. The optional par
 - Limit Sorted by Relevance Score: `http://localhost/sortkey/relevanceScore?limit=3`
 - Limit Sorted by Views: `http://localhost/sortkey/views?=5`
 
+A full list of instructions can be obtained by running `make help` in the root directory:
+
+```
+$make help
+
+Usage:
+  make <target>
+
+General
+  help             Display this help.
+
+Development
+  fmt              Run go fmt against code.
+  vet              Run go vet against code.
+  run              Run the webservice from host.
+
+Build
+  build            Build go binary.
+  docker-build     Build docker image with the webservice.
+  kind-load-docker-image  Push docker image with the webservice to kind cluster.
+
+Deployment Infra
+  kind-create-cluster  Deploy Kind k8s cluster.
+  kind-delete-cluster  Delete Kind k8s cluster.
+
+Deployment App
+  deploy-kustomize  Deploy urlstats app to the K8s cluster specified in ~/.kube/config using Kustomize.
+  undeploy-kustomize  Undeploy urlstats app to the K8s cluster specified in ~/.kube/config using Kustomize.
+  deploy-k8s       Deploy urlstats app to the K8s cluster specified in ~/.kube/config using yaml files.
+  undeploy-k8s     Undeploy urlstats app to the K8s cluster specified in ~/.kube/config using yaml files.
+  deploy-docker-file  Deploy urlstats app locally using docker.
+  deploy-docker-http  Deploy urlstats app locally using docker.
+  deploy-bin       Deploy urlstats app locally using go binary.
+  undeploy-bin     Uneploy urlstats app locally using go binary.
+
+E2E Deployment
+  all              build docker image, provision k8's kinD cluster and deploy urlstats webservice using kustomize
+
+Support/Troubleshoot
+  kind-list-loaded-images  List Docker images loaded to Kind k8s cluster.
+  wsl2-start-docker-daemon  Start docker daemon in wsl2.
+
+Cleanup
+  clean-bin        Removes the bin directory
+  clean-docker-images  Removes all docker images
+  clean-docker-containers  Removes all docker containers. WARNING: also removes running containers.
+
+Build Dependencies
+  --kind           Download kind locally if necessary.
+  --kustomize      Download kustomize locally if necessary.
+```
 Quick deployment can be achieved by running `make all`, this creates a KinD cluster then deploys and configures the application using Kustomize.
 See [Deployment](#deployment) section for more deployment options.
 ## Prerequisites
@@ -46,7 +97,7 @@ Installation of Kustomize and KinD are managed automatically with the Makefile a
 
 ## Installing and Running
 
-A number of options have been provided for installing and running the application. 
+A number of options have been provided for installing and running the application.
 They are all accessible in the Makefile.
 
 ### Installing and Running - Locally
@@ -126,7 +177,7 @@ Give an example
 
 ## Deployment
 
-A number of deployment options have been provided. 
+A number of deployment options have been provided.
 They are all accessible in the Makefile.
 
 ### Deployment using Docker Compose
@@ -153,7 +204,7 @@ Type `Ctrl+C` to stop the docker deployment.
 
 ### K8s Deployment using yaml manifests
 
-We have chosen to use KinD clusters for local testing 
+We have chosen to use KinD clusters for local testing
 
 ```sh
 make docker-build
@@ -172,7 +223,7 @@ make kind-delete-cluster
 
 ### K8s Deployment using Kustomize
 
-We have chosen to use KinD clusters for local testing 
+We have chosen to use KinD clusters for local testing
 
 ```sh
 make docker-build

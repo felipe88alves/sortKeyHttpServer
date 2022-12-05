@@ -11,7 +11,6 @@ RUN go mod download
 COPY *.go ./
 
 # Build go binary
-# RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64go build -o /urlstats-webservice
 RUN go build -o /sortedurlstats
 
 FROM alpine
@@ -20,8 +19,6 @@ WORKDIR /
 
 COPY --from=builder /sortedurlstats /sortedurlstats
 
-# ONLY NEEDED FOR OFFLINE TESTING: jsonDataSource = GETJSONDATA_FILE
-# COPY resources/raw-json-files/ resources/raw-json-files/
 
 ENV DATA_COLLECTION_METHOD=http
 

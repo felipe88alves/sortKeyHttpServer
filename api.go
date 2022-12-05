@@ -142,8 +142,8 @@ func mergeSort(items *urlStatSlice, sortBy string) (*urlStatSlice, error) {
 	}
 	second := (*items)[len(*items)/2:]
 	secondPtr, err := mergeSort(&second, sortBy)
-	// The error handling below unecessary wih current implementation. Leaving it anyway for robustness.
-	// mergeSort error is caused by sortOption, so it would have already been returned in the first call to mergeSort
+	// The error handling below is unecessary wih current implementation. LDecision was made to leave it in for robustness.
+	// DETAILS ON DECISION: mergeSort error is caused by sortOption, so it would have already been returned in the first call to mergeSort.
 	// This comment block can be removed if additional error handling is added to mergeSort
 	if err != nil {
 		return nil, err

@@ -67,6 +67,7 @@ func TestGetFilesInRelativePath(t *testing.T) {
 	for _, tc := range testCases {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 			relTestPath := filepath.Join(fileTestRelativePath, tc.inputRelativePath)
 			result, resultErr := getFilesInRelativePath(relTestPath, fileTestBasePath)
 
@@ -125,6 +126,7 @@ func TestMustGetBasePath(t *testing.T) {
 	for _, tc := range testCases {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 			result := mustGetBasePath(tc.inputWorkingDir)
 
 			if result != tc.expectedBasePath {
@@ -179,7 +181,7 @@ func TestFilterFiles(t *testing.T) {
 	for _, tc := range testCases {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
-
+			t.Parallel()
 			fullPath := filepath.Join(fileTestBasePath, fileTestRelativePath, testFolderDataSource, tc.inputTestDir)
 			dirEntries, err := os.ReadDir(fullPath)
 			if err != nil {
@@ -237,7 +239,7 @@ func TestMustGetFile(t *testing.T) {
 	for _, tc := range testCases {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
-
+			t.Parallel()
 			result, resultErr := mustGetFile(fileTestBasePath, tc.inputRelFilePath)
 
 			if strings.Compare(string(result), tc.expected) != 0 {

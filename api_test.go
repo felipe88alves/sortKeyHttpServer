@@ -33,7 +33,7 @@ func TestHandleRawStats(t *testing.T) {
 	var (
 		responseUnsorted = `{"data":[{"url":"www.example.com/abc1","views":1000,"relevanceScore":0.5},{"url":"www.example.com/abc5","views":5000,"relevanceScore":0.1},{"url":"www.example.com/abc3","views":3000,"relevanceScore":0.2},{"url":"www.example.com/abc2","views":2000,"relevanceScore":0.4},{"url":"www.example.com/abc4","views":4000,"relevanceScore":0.3}],"count":5}`
 
-		testUrlDataSourceFile = "file"
+		testUrlDataSourceFile = urlDataSourceFile
 		testFolderDataSource  = "testHandleRawStats"
 
 		successDir = "success"
@@ -74,7 +74,7 @@ func TestHandleRawStats(t *testing.T) {
 	for _, tc := range testCases {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
-			// t.Parallel()
+			t.Parallel()
 			req := httptest.NewRequest(http.MethodGet,
 				tc.inputUrlPath,
 				nil)
@@ -83,7 +83,8 @@ func TestHandleRawStats(t *testing.T) {
 			relPath := filepath.Join(apiTestRelativePath, testFolderDataSource, tc.inputTestFileDir)
 			svc, err := newUrlStatDataService(testUrlDataSourceFile, relPath)
 			if err != nil {
-				t.Fatalf("Internal Test Failure: %v", err)
+				t.Fatalf("Test Failed: %v Failed to create UrlStatDataService. Error: %v",
+					tc.name, err.Error())
 			}
 			svc = newLoggingService(svc)
 			apiServer := newApiServer(svc)
@@ -108,7 +109,8 @@ func TestHandleRawStats(t *testing.T) {
 
 			expectedResponseUrlStats := new(responseUrlStats)
 			if err := json.Unmarshal([]byte(tc.expectedResponse), &expectedResponseUrlStats); err != nil {
-				t.Fatalf("Internal Test Failure: %v", err)
+				t.Fatalf("test Failed: %v Internal Test Failure: %v",
+					tc.name, err.Error())
 			}
 
 			assert := reflect.DeepEqual(expectedResponseUrlStats, resultResponseUrlStats)
@@ -128,7 +130,7 @@ func TestHandleSortKey_sortOption(t *testing.T) {
 		responseSortedRelevancescore = `{"data":[{"url":"www.example.com/abc5","views":5000,"relevanceScore":0.1},{"url":"www.example.com/abc3","views":3000,"relevanceScore":0.2},{"url":"www.example.com/abc4","views":4000,"relevanceScore":0.3},{"url":"www.example.com/abc2","views":2000,"relevanceScore":0.4},{"url":"www.example.com/abc1","views":1000,"relevanceScore":0.5}],"count":5}`
 		responseSortedViews          = `{"data":[{"url":"www.example.com/abc1","views":1000,"relevanceScore":0.5},{"url":"www.example.com/abc2","views":2000,"relevanceScore":0.4},{"url":"www.example.com/abc3","views":3000,"relevanceScore":0.2},{"url":"www.example.com/abc4","views":4000,"relevanceScore":0.3},{"url":"www.example.com/abc5","views":5000,"relevanceScore":0.1}],"count":5}`
 
-		testUrlDataSourceFile = "file"
+		testUrlDataSourceFile = urlDataSourceFile
 		testFolderDataSource  = "testHandleSortKey"
 
 		successDir = "success"
@@ -166,7 +168,7 @@ func TestHandleSortKey_sortOption(t *testing.T) {
 	for _, tc := range testCases {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
-			// t.Parallel()
+			t.Parallel()
 			req := httptest.NewRequest(http.MethodGet,
 				fmt.Sprintf("/%s/%s", sortkeyPath, tc.inputSortOption),
 				nil)
@@ -175,7 +177,8 @@ func TestHandleSortKey_sortOption(t *testing.T) {
 			relPath := filepath.Join(apiTestRelativePath, testFolderDataSource, tc.inputTestFileDir)
 			svc, err := newUrlStatDataService(testUrlDataSourceFile, relPath)
 			if err != nil {
-				t.Fatalf("Internal Test Failure: %v", err)
+				t.Fatalf("Test Failed: %v Failed to create UrlStatDataService. Error: %v",
+					tc.name, err.Error())
 			}
 			svc = newLoggingService(svc)
 			apiServer := newApiServer(svc)
@@ -200,7 +203,8 @@ func TestHandleSortKey_sortOption(t *testing.T) {
 
 			expectedResponseUrlStats := new(responseUrlStats)
 			if err := json.Unmarshal([]byte(tc.expectedResponse), &expectedResponseUrlStats); err != nil {
-				t.Fatalf("Internal Test Failure: %v", err)
+				t.Fatalf("test Failed: %v Internal Test Failure: %v",
+					tc.name, err.Error())
 			}
 
 			assert := reflect.DeepEqual(expectedResponseUrlStats, resultResponseUrlStats)
@@ -216,7 +220,7 @@ func TestHandleSortKey_sortKeyPath(t *testing.T) {
 	const unsupportedKeyPath = "unsupported"
 
 	var (
-		testUrlDataSourceFile = "file"
+		testUrlDataSourceFile = urlDataSourceFile
 		testFolderDataSource  = "testHandleSortKey"
 
 		successDir = "success"
@@ -255,7 +259,7 @@ func TestHandleSortKey_sortKeyPath(t *testing.T) {
 	for _, tc := range testCases {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
-			// t.Parallel()
+			t.Parallel()
 			req := httptest.NewRequest(http.MethodGet,
 				fmt.Sprintf("/%s/%s", tc.inputSortKeyPath, tc.inputSortOption),
 				nil)
@@ -264,7 +268,8 @@ func TestHandleSortKey_sortKeyPath(t *testing.T) {
 			relPath := filepath.Join(apiTestRelativePath, testFolderDataSource, tc.inputTestFileDir)
 			svc, err := newUrlStatDataService(testUrlDataSourceFile, relPath)
 			if err != nil {
-				t.Fatalf("Internal Test Failure: %v", err)
+				t.Fatalf("Test Failed: %v Failed to create UrlStatDataService. Error: %v",
+					tc.name, err.Error())
 			}
 			svc = newLoggingService(svc)
 			apiServer := newApiServer(svc)
@@ -286,7 +291,7 @@ func TestHandleSortKey_sortKeyPath(t *testing.T) {
 
 func TestHandleSortKey_httpMethod(t *testing.T) {
 	var (
-		testUrlDataSourceFile = "file"
+		testUrlDataSourceFile = urlDataSourceFile
 		testFileDataSource    = filepath.Join("_test_resources", "api_test", "testHandler")
 	)
 	const unsupportedHttMethod = "unsupported"
@@ -315,7 +320,7 @@ func TestHandleSortKey_httpMethod(t *testing.T) {
 	for _, tc := range testCases {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
-			// t.Parallel()
+			t.Parallel()
 			req := httptest.NewRequest(tc.httpMethod,
 				fmt.Sprintf("/%s/%s", sortkeyPath, relevancescoreOption),
 				nil)
@@ -323,7 +328,8 @@ func TestHandleSortKey_httpMethod(t *testing.T) {
 
 			svc, err := newUrlStatDataService(testUrlDataSourceFile, testFileDataSource)
 			if err != nil {
-				t.Fatalf("Internal Test Failure: %v", err)
+				t.Fatalf("Test Failed: %v Failed to create UrlStatDataService. Error: %v",
+					tc.name, err.Error())
 			}
 			svc = newLoggingService(svc)
 			apiServer := newApiServer(svc)
@@ -345,7 +351,7 @@ func TestHandleSortKey_httpMethod(t *testing.T) {
 
 func TestHandleSortKey_limitFilter(t *testing.T) {
 	var (
-		testUrlDataSourceFile = "file"
+		testUrlDataSourceFile = urlDataSourceFile
 		testFileDataSource    = filepath.Join("_test_resources", "api_test", "testHandler")
 	)
 
@@ -395,7 +401,7 @@ func TestHandleSortKey_limitFilter(t *testing.T) {
 	for _, tc := range testCases {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
-			// t.Parallel()
+			t.Parallel()
 			req := httptest.NewRequest(http.MethodGet,
 				fmt.Sprintf("/%s/%s?%s=%s", sortkeyPath, relevancescoreOption, limitFilterOption, tc.limitFilter),
 				nil)
@@ -403,7 +409,8 @@ func TestHandleSortKey_limitFilter(t *testing.T) {
 
 			svc, err := newUrlStatDataService(testUrlDataSourceFile, testFileDataSource)
 			if err != nil {
-				t.Fatalf("Internal Test Failure: %v", err)
+				t.Fatalf("test Failed: %v Internal Test Failure: %v",
+					tc.name, err.Error())
 			}
 			svc = newLoggingService(svc)
 			apiServer := newApiServer(svc)
@@ -419,7 +426,6 @@ func TestHandleSortKey_limitFilter(t *testing.T) {
 						tc.name, tc.expectedStatusCode, http.StatusOK)
 				}
 			}
-			// apiServer.handleSortKey(rec, req)
 
 			resp := rec.Result()
 			defer resp.Body.Close()
@@ -439,6 +445,7 @@ func TestHandleSortKey_limitFilter(t *testing.T) {
 }
 
 func TestWriteJson(t *testing.T) {
+	t.Parallel()
 	// TODO: missing negative test case. Error when Encoding Json
 	const (
 		expectedHttpStatusOk = http.StatusOK
@@ -467,7 +474,8 @@ func TestWriteJson(t *testing.T) {
 	result := new(responseUrlStats)
 	err := json.NewDecoder(resp.Body).Decode(result)
 	if err != nil {
-		t.Fatalf("Internal Test Failure: %v", err.Error())
+		t.Fatalf("test Failed: %v Internal Test Failure: %v",
+			"TestWriteJson", err.Error())
 	}
 
 	assert := reflect.DeepEqual(result, expectedJsonResponse)
@@ -475,8 +483,8 @@ func TestWriteJson(t *testing.T) {
 		t.Fatalf("Test Failed. Expected Result: %v Actual Result: %v",
 			result, expectedJsonResponse)
 	}
-
 }
+
 func TestMergeSort(t *testing.T) {
 	urlStatA := &urlStat{
 		Url:            "a",
@@ -608,19 +616,22 @@ func TestMergeSort(t *testing.T) {
 
 	for _, tcOption := range testCasesOption {
 		for _, tcUrlStat := range testCasesUrlStat {
-			result, resultErr := mergeSort(tcUrlStat.inputUrlStat, tcOption.inputOption)
+			t.Run(tcOption.name+" - "+tcUrlStat.name, func(t *testing.T) {
+				t.Parallel()
+				result, resultErr := mergeSort(tcUrlStat.inputUrlStat, tcOption.inputOption)
 
-			assert := reflect.DeepEqual(result, tcUrlStat.expectedUrlStatResult)
-			if !assert {
-				t.Fatalf("Test Failed: %v Expected Result: %v Actual result: %v",
-					tcOption.name+" - "+tcUrlStat.name, tcUrlStat.expectedUrlStatResult, result)
-			}
+				assert := reflect.DeepEqual(result, tcUrlStat.expectedUrlStatResult)
+				if !assert {
+					t.Fatalf("Test Failed: %v Expected Result: %v Actual result: %v",
+						tcOption.name+" - "+tcUrlStat.name, tcUrlStat.expectedUrlStatResult, result)
+				}
 
-			assertErr := resultErr != nil
-			if assertErr != tcUrlStat.expectedErr {
-				t.Fatalf("Test Failed: %v. Expected Error to occur: %v. Returned Error: %v",
-					tcUrlStat.name, tcUrlStat.expectedErr, resultErr.Error())
-			}
+				assertErr := resultErr != nil
+				if assertErr != tcUrlStat.expectedErr {
+					t.Fatalf("Test Failed: %v. Expected Error to occur: %v. Returned Error: %v",
+						tcOption.name+" - "+tcUrlStat.name, tcUrlStat.expectedErr, resultErr.Error())
+				}
+			})
 
 		}
 	}
@@ -745,6 +756,7 @@ func TestIsSortedByOption(t *testing.T) {
 	for _, tc := range testCases {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 			result, resultErr := isSortedByOption(tc.inputSortOption, tc.inputFirst, tc.inputLast)
 			if result != tc.expectedBool {
 				t.Fatalf("Test Failed: %v. Expected Result: %v Actual Result: %v",
@@ -812,6 +824,7 @@ func TestIsSortedByRelevanceScoreAscending(t *testing.T) {
 	for _, tc := range testCases {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 			result, resultErr := isSortedByRelevanceScoreAscending(tc.inputFirst, tc.inputLast)
 			if result != tc.expectedBool {
 				t.Fatalf("Test Failed: %v. Expected Result: %v Actual Result: %v",
@@ -879,6 +892,7 @@ func TestIsSortedByViewsScoreAscending(t *testing.T) {
 	for _, tc := range testCases {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 			result, resultErr := isSortedByViewsScoreAscending(tc.inputFirst, tc.inputLast)
 			if result != tc.expectedBool {
 				t.Fatalf("Test Failed: %v. Expected Result: %v Actual Result: %v",
@@ -926,6 +940,7 @@ func TestGetSortOption(t *testing.T) {
 	for _, tc := range testCases {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 			result := getSortOption(tc.input)
 			if result != tc.expected {
 				t.Fatalf("Test Failed: %v. Expected Result: %v Actual Result: %v",
@@ -946,7 +961,8 @@ func TestGetLimitValue(t *testing.T) {
 	)
 	limitValueInt, err := strconv.Atoi(limitValueString)
 	if err != nil {
-		t.Fatalf("Internal Test Failure: %v", err)
+		t.Fatalf("test Failed: %v Internal Test Failure: %v",
+			"TestGetLimitValue", err.Error())
 	}
 	testCases := []struct {
 		name     string
@@ -1020,6 +1036,7 @@ func TestGetLimitValue(t *testing.T) {
 	for _, tc := range testCases {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 			result := getLimitValue(tc.input)
 			if result != tc.expected {
 				t.Fatalf("Test Failed: %v. Expected Result: %v Actual Result: %v",
@@ -1123,6 +1140,7 @@ func TestLimitResponse(t *testing.T) {
 	for _, tc := range testCases {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 			result, resultErr := limitReponse(tc.inputUrlStatSlice, tc.inputLimit)
 			assert := reflect.DeepEqual(result, tc.expectedUrlStatSlice)
 			if !assert {

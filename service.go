@@ -78,10 +78,9 @@ func (uS *urlStatDataService) getUrlStatsData(ctx context.Context) (*urlStatData
 		return uS.getUrlStatsDataHttpEndpointsFromFile(ctx, files, basePath)
 	case urlDataSourceFile:
 		return uS.getUrlStatsDataFromFile(files, basePath)
-		// default:
-		// 	return nil, fmt.Errorf("invalid method for getting json data. Data Source: %q. Set %q env variable to either %q or %q", method, URLSTATS_ENV_VAR, URLSTATSDATA_URL, URLSTATSDATA_FILE)
+	default:
+		return nil, fmt.Errorf("invalid method for getting json data. Data Source: %s", uS.dataSourceType)
 	}
-	return nil, err
 }
 
 func getDataSourceType(dataSourceType string) string {
@@ -90,7 +89,7 @@ func getDataSourceType(dataSourceType string) string {
 	case urlDataSourceHttp:
 		return dataSourceType
 	case urlDataSourceFile:
-		log.Printf("WARNING: Do not use this setting in produciton. Overriding Data Source to custom value: %v", urlDataSourceFile)
+		log.Printf("WARNING: Do not use this setting in production. Overriding Data Source to custom value: %v", urlDataSourceFile)
 		return dataSourceType
 	default:
 		// If not defined. Defaults to fetching data from URLs (HTTP Endpoints)
