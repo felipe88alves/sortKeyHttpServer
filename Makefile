@@ -48,11 +48,11 @@ pre-test: fmt vet
 test-unit: pre-test --unit
 
 --unit:
-	go test -race . -coverprofile cover.out
+	go test -race ./... -coverprofile cover.out
 
 .PHONY: run
 run: fmt vet ## Run the webservice from host.
-	go run .
+	go run ./...
 
 ##@ Build
 
@@ -72,7 +72,7 @@ kind-load-docker-image: --kind ## Push docker image with the webservice to kind 
 
 .PHONY: kind-create-cluster
 kind-create-cluster: --kind ## Deploy Kind k8s cluster.
-	$(KIND) create cluster --config=./resources/infra/kind-cluster.yaml
+	$(KIND) create cluster --config=./dev-resources/infra/kind-cluster.yaml
 
 .PHONY: kind-delete-cluster
 kind-delete-cluster: --kind ## Delete Kind k8s cluster.
@@ -82,27 +82,27 @@ kind-delete-cluster: --kind ## Delete Kind k8s cluster.
 
 .PHONY: deploy-kustomize
 deploy-kustomize: --kustomize ## Deploy urlstats app to the K8s cluster specified in ~/.kube/config using Kustomize.
-	$(KUSTOMIZE) build resources/kustomize | kubectl apply -f -
+	$(KUSTOMIZE) build dev-resources/kustomize | kubectl apply -f -
 
 .PHONY: undeploy-kustomize
 undeploy-kustomize: --kustomize ## Undeploy urlstats app to the K8s cluster specified in ~/.kube/config using Kustomize.
-	$(KUSTOMIZE) build resources/kustomize | kubectl delete -f -
+	$(KUSTOMIZE) build dev-resources/kustomize | kubectl delete -f -
 
 .PHONY: deploy-k8s
 deploy-k8s: ## Deploy urlstats app to the K8s cluster specified in ~/.kube/config using yaml files.
-	kubectl apply -f resources/k8s-manifests/urlstats-deployment.yaml
+	kubectl apply -f dev-resources/k8s-manifests/urlstats-deployment.yaml
 
 .PHONY: undeploy-k8s
 undeploy-k8s: ## Undeploy urlstats app to the K8s cluster specified in ~/.kube/config using yaml files.
-	kubectl delete -f resources/k8s-manifests/urlstats-deployment.yaml
+	kubectl delete -f dev-resources/k8s-manifests/urlstats-deployment.yaml
 
 .PHONY: deploy-docker-file
 deploy-docker-file: ## Deploy urlstats app locally using docker.
-	docker compose -f docker-compose-file.yml up
+	docker compose -f docker-compose-file.yml up --build --force-recreate
 
 .PHONY: deploy-docker-http
 deploy-docker-http: ## Deploy urlstats app locally using docker.
-	docker compose -f docker-compose-http.yml up
+	docker compose -f docker-compose-http.yml up --build --force-recreate
 
 .PHONY: deploy-bin
 deploy-bin: build ## Deploy urlstats app locally using go binary.
@@ -119,7 +119,7 @@ kind-list-loaded-images: --kind ## List Docker images loaded to Kind k8s cluster
 
 .PHONY: wsl2-start-docker-daemon ## Usefull if docker is installed locally in wsl2
 wsl2-start-docker-daemon: ## Start docker daemon in wsl2.
-	./resources/scripts/wsl2_start_docker_daemon.sh
+	./dev-resources/scripts/wsl2_start_docker_daemon.sh
 
 ##@ Cleanup
 

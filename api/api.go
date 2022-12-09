@@ -1,4 +1,4 @@
-package main
+package api
 
 import (
 	"context"
@@ -7,6 +7,8 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+
+	"github.com/felipe88alves/sortKeyHttpServer/types"
 )
 
 const (
@@ -17,7 +19,7 @@ type apiServer struct {
 	svc service
 }
 
-func newApiServer(svc service) *apiServer {
+func NewApiServer(svc service) *apiServer {
 	return &apiServer{
 		svc: svc,
 	}
@@ -37,7 +39,7 @@ func makeHttpHandler(f apiFunc) http.HandlerFunc {
 	}
 }
 
-func (s *apiServer) start(listenAddr string) error {
+func (s *apiServer) Start(listenAddr string) error {
 	http.HandleFunc("/", makeHttpHandler(s.handleRawStats))
 	http.HandleFunc(fmt.Sprintf("/%s/", sortkeyPath), makeHttpHandler(s.handleSortKey))
 	return http.ListenAndServe(listenAddr, nil)
@@ -58,7 +60,7 @@ func (s *apiServer) handleRawStats(w http.ResponseWriter, r *http.Request) error
 
 	switch r.Method {
 	case http.MethodGet:
-		jsonReturnMsg := responseUrlStats{
+		jsonReturnMsg := types.ResponseUrlStats{
 			SortedUrlStats: &urlStats.Data,
 			Count:          len(urlStats.Data),
 		}
@@ -98,13 +100,12 @@ func (s *apiServer) handleSortKey(w http.ResponseWriter, r *http.Request) error 
 			return apiError{Err: err.Error(), Status: http.StatusInternalServerError}
 		}
 
-		limitValue := getLimitValue(r.URL.Query())
-		urlStatResponse, err = limitReponse(urlStatResponse, limitValue)
+		urlStatResponse, err = limitReponse(urlStatResponse, r.URL.Query())
 		if err != nil {
 			return apiError{Err: err.Error(), Status: http.StatusInternalServerError}
 		}
 
-		jsonReturnMsg := responseUrlStats{
+		jsonReturnMsg := types.ResponseUrlStats{
 			SortedUrlStats: urlStatResponse,
 			Count:          len(*urlStatResponse),
 		}

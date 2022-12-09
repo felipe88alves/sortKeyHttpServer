@@ -1,11 +1,11 @@
-package main
+package utils
 
 import (
+	"fmt"
 	"io/fs"
 	"os"
 	"path/filepath"
 	"reflect"
-	"runtime"
 	"strings"
 	"testing"
 )
@@ -18,49 +18,77 @@ import (
 // }
 // fs.fstest.ReadDir()
 
-var fileTestBasePath, fileTestRelativePath string
+var fileTestRelativePath string
 
 func init() {
-	// Path to test files should be hardcoded here for the tests to be valid.
-	_, currFileLocation, _, _ := runtime.Caller(0)
-	fileTestBasePath = filepath.Dir(currFileLocation)
-
+	// BasePath and RelPath must be hardcoded here for the tests to be valid.
 	fileTestRelativePath = filepath.Join(
 		"_test_resources",
 		"file_test",
 	)
 }
 
-func TestGetFilesInRelativePath(t *testing.T) {
+func TestGetFilesInRelativePathByType(t *testing.T) {
 	const (
+		success         = "success"
+		emptyDir        = "empty-dir"
+		noValidFileType = "invalid-files"
 		nonExistingPath = "nonExistingPath"
 
 		testFolderDataSource = "testGetFilesInRelativePath"
 		successFileNameJson  = "test.json"
 		successFileNameCfg   = "test.cfg"
+
+		jsonFileType = ".json"
+		cfgFileType  = ".cfg"
 	)
 
 	testCases := []struct {
 		name              string
-		inputRelativePath string
-		expectedFileCount int
+		inputTestDir      string
+		inputTypeFilter   string
 		expectedFileNames []string
 		expectedErr       bool
 	}{
 		{
-			name:              "Existing directory: 3 files - 2 successful",
-			inputRelativePath: testFolderDataSource,
-			expectedFileCount: 2,
+			name:            fmt.Sprintf("Filter: %s Total/Filtered Files: 3/1", jsonFileType),
+			inputTestDir:    success,
+			inputTypeFilter: jsonFileType,
 			expectedFileNames: []string{
 				successFileNameJson,
-				successFileNameCfg,
 			},
 			expectedErr: false,
 		},
 		{
-			name:              "Non-existing directory",
-			inputRelativePath: nonExistingPath,
-			expectedErr:       true,
+			name:            fmt.Sprintf("Filter: %s Total/Filtered Files: 3/1", cfgFileType),
+			inputTestDir:    success,
+			inputTypeFilter: cfgFileType,
+			expectedFileNames: []string{
+				successFileNameJson,
+			},
+			expectedErr: false,
+		},
+		{
+			name:            fmt.Sprintf("Filter: %s Total/Returned Files: 4/0", jsonFileType),
+			inputTestDir:    noValidFileType,
+			inputTypeFilter: jsonFileType,
+			expectedErr:     true,
+		},
+		{
+			name:            fmt.Sprintf("Filter: %s Total/Returned Files: 4/0", cfgFileType),
+			inputTestDir:    noValidFileType,
+			inputTypeFilter: cfgFileType,
+			expectedErr:     true,
+		},
+		{
+			name:         "Empty directory",
+			inputTestDir: emptyDir,
+			expectedErr:  true,
+		},
+		{
+			name:         "Non-existing directory",
+			inputTestDir: nonExistingPath,
+			expectedErr:  true,
 		},
 	}
 
@@ -68,13 +96,24 @@ func TestGetFilesInRelativePath(t *testing.T) {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-			relTestPath := filepath.Join(fileTestRelativePath, tc.inputRelativePath)
-			result, resultErr := getFilesInRelativePath(relTestPath, fileTestBasePath)
+			relTestPath := filepath.Join(fileTestRelativePath, testFolderDataSource, tc.inputTestDir)
+			fullPath := filepath.Join(BasePath, relTestPath)
 
-			if len(result) != tc.expectedFileCount {
-				t.Fatalf("Test Failed: %v. Expected Result Length: %v Actual Result Length: %v",
-					tc.name, tc.expectedFileCount, len(result))
+			if tc.inputTestDir == emptyDir {
+				if err := os.RemoveAll(fullPath); err != nil {
+					t.Fatalf("Internal Testing error: %v", err)
+				}
+				if err := os.Mkdir(fullPath, 0755); err != nil {
+					t.Fatalf("Internal Testing error: %v", err)
+				}
+				defer func() {
+					if err := os.Remove(fullPath); err != nil {
+						t.Fatalf("Internal Testing error: %v", err)
+					}
+				}()
 			}
+
+			result, resultErr := GetFilesInRelativePathByType(relTestPath, tc.inputTypeFilter)
 
 			var resultFileNames []string
 			for _, dirEntry := range result {
@@ -97,29 +136,29 @@ func TestGetFilesInRelativePath(t *testing.T) {
 
 func TestMustGetBasePath(t *testing.T) {
 
-	const (
-		lowerWorkingDir = "_test_resources/"
-	)
+	dirAboveBasePath, _ := mustGetBasePath()
+	dirAboveBasePath = filepath.Dir(dirAboveBasePath)
 
 	testCases := []struct {
 		name             string
 		inputWorkingDir  string
 		expectedBasePath string
+		expectedErr      bool
 	}{
 		{
-			name:             "BasePath not found. Return root dir '/'",
-			inputWorkingDir:  filepath.Dir(fileTestBasePath),
+			name:             "BasePath != Working Directory - Higher",
+			inputWorkingDir:  dirAboveBasePath,
 			expectedBasePath: "/",
 		},
 		{
-			name:             "BasePath == Working Directory",
-			inputWorkingDir:  filepath.Join(fileTestBasePath, lowerWorkingDir),
-			expectedBasePath: fileTestBasePath,
+			name:             "BasePath != Working Directory - Lower",
+			inputWorkingDir:  filepath.Join(BasePath, fileTestRelativePath),
+			expectedBasePath: BasePath,
 		},
 		{
 			name:             "BasePath == Working Directory",
-			inputWorkingDir:  fileTestBasePath,
-			expectedBasePath: fileTestBasePath,
+			inputWorkingDir:  BasePath,
+			expectedBasePath: BasePath,
 		},
 	}
 
@@ -127,11 +166,21 @@ func TestMustGetBasePath(t *testing.T) {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-			result := mustGetBasePath(tc.inputWorkingDir)
+			if err := os.Chdir(tc.inputWorkingDir); err != nil {
+				t.Fatalf("Internal Testing error: %v", err)
+			}
+
+			result, resultErr := mustGetBasePath()
 
 			if result != tc.expectedBasePath {
 				t.Fatalf("Test Failed: %v. Expected Result: %v Actual Result: %v",
 					tc.name, tc.expectedBasePath, result)
+			}
+
+			assertErr := resultErr != nil
+			if assertErr != tc.expectedErr {
+				t.Fatalf("Test Failed: %v. Expected Error to occur: %v. Returned Error: %v",
+					tc.name, tc.expectedErr, resultErr.Error())
 			}
 
 		})
@@ -143,27 +192,38 @@ func TestFilterFiles(t *testing.T) {
 		testFolderDataSource = "testFilterFiles"
 
 		emptyDir         = "empty-dir"
-		gitKeepFile      = ".gitkeep"
 		filteredFilesDir = "filtered-files"
 
 		successFileNameJson = "test.json"
 		successFileNameCfg  = "test.cfg"
+
+		jsonFileType = ".json"
+		cfgFileType  = ".cfg"
 	)
 	testCases := []struct {
 		name               string
+		inputTypeFilter    string
 		inputTestDir       string
 		inputTestFileCount int
-		expectedFileCount  int
 		expectedFileNames  []string
 		expectedDirEntry   []fs.DirEntry
 	}{
 		{
-			name:               "Valid files: 6 files - 2 successful - .cfg and .json",
+			name:               "Valid files: 6 files - 1 successful - .json",
+			inputTypeFilter:    jsonFileType,
 			inputTestDir:       filteredFilesDir,
 			inputTestFileCount: 6,
-			expectedFileCount:  2,
 			expectedFileNames: []string{
 				successFileNameJson,
+			},
+			expectedDirEntry: []fs.DirEntry{},
+		},
+		{
+			name:               "Valid files: 6 files - 1 successful - .cfg",
+			inputTypeFilter:    cfgFileType,
+			inputTestDir:       filteredFilesDir,
+			inputTestFileCount: 6,
+			expectedFileNames: []string{
 				successFileNameCfg,
 			},
 			expectedDirEntry: []fs.DirEntry{},
@@ -183,12 +243,19 @@ func TestFilterFiles(t *testing.T) {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-			fullPath := filepath.Join(fileTestBasePath, fileTestRelativePath, testFolderDataSource, tc.inputTestDir)
+			fullPath := filepath.Join(BasePath, fileTestRelativePath, testFolderDataSource, tc.inputTestDir)
 			if tc.inputTestDir == emptyDir {
-				// Remove .gitkeep file and create it again once the test is finished
-				fullFilePath := filepath.Join(fullPath, gitKeepFile)
-				os.Remove(fullFilePath)
-				defer os.Create(fullFilePath)
+				if err := os.RemoveAll(fullPath); err != nil {
+					t.Fatalf("Internal Testing error: %v", err)
+				}
+				if err := os.Mkdir(fullPath, 0755); err != nil {
+					t.Fatalf("Internal Testing error: %v", err)
+				}
+				defer func() {
+					if err := os.Remove(fullPath); err != nil {
+						t.Fatalf("Internal Testing error: %v", err)
+					}
+				}()
 			}
 			dirEntries, err := os.ReadDir(fullPath)
 			if err != nil {
@@ -196,15 +263,11 @@ func TestFilterFiles(t *testing.T) {
 			}
 
 			if len(dirEntries) != tc.inputTestFileCount {
-				t.Fatalf("Intrnal Test Failure: %v. Expected number of loaded Files: %v Actual number of loaded Files: %v",
+				t.Fatalf("Internal Test Failure: %v. Expected number of loaded Files: %v Actual number of loaded Files: %v",
 					tc.name, tc.inputTestFileCount, len(dirEntries))
 			}
 
-			result := filterFiles(dirEntries)
-			if len(result) != tc.expectedFileCount {
-				t.Fatalf("Test Failed: %v. Expected Result Length: %v Actual Result Length: %v",
-					tc.name, tc.expectedFileCount, len(result))
-			}
+			result := filterFiles(dirEntries, tc.inputTypeFilter)
 
 			var resultFileNames []string
 			for _, dirEntry := range result {
@@ -247,7 +310,7 @@ func TestMustGetFile(t *testing.T) {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-			result, resultErr := mustGetFile(fileTestBasePath, tc.inputRelFilePath)
+			result, resultErr := MustGetFile(tc.inputRelFilePath)
 
 			if strings.Compare(string(result), tc.expected) != 0 {
 				t.Fatalf("Test Failed: %v. Expected Result: %v Actual Result: %v",

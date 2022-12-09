@@ -4,11 +4,13 @@ WORKDIR /app
 
 COPY go.mod ./
 COPY go.sum ./
-
 RUN go mod download
 
 # Copy the go source
-COPY *.go ./
+COPY main.go main.go
+COPY api/ api/
+COPY types/ types/
+COPY utils/ utils/
 
 # Build go binary
 RUN go build -o /sortedurlstats

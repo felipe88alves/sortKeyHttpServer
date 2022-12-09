@@ -5,6 +5,6 @@ services:
     ports:
       - "80:5000"
     volumes:
-      - ./resources/raw-json-files:/resources/raw-json-files
+      - ./dev-resources/raw-json-files:/dev-resources/raw-json-files
     environment:
       - DATA_COLLECTION_METHOD=file

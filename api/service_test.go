@@ -1,4 +1,4 @@
-package main
+package api
 
 import (
 	"context"
@@ -15,14 +15,17 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/felipe88alves/sortKeyHttpServer/types"
+	"github.com/felipe88alves/sortKeyHttpServer/utils"
 )
 
-var serviceTestBasePath, serviceTestRelativePath string
+var serviceTestRelativePath string
 
 func init() {
-	// Path to test files should be hardcoded here for the tests to be valid.
+	// BasePath and RelPath must be hardcoded here for the tests to be valid.
 	_, currFileLocation, _, _ := runtime.Caller(0)
-	serviceTestBasePath = filepath.Dir(currFileLocation)
+	utils.BasePath = filepath.Dir(filepath.Dir(currFileLocation))
 
 	serviceTestRelativePath = filepath.Join(
 		"_test_resources",
@@ -30,82 +33,91 @@ func init() {
 	)
 }
 
-// func TestNewUrlStatDataService(t *testing.T) {
+func TestNewUrlStatDataService(t *testing.T) {
 
-// 	testCases := []struct {
-// 		name                string
-// 		inputDataSourceType string
-// 		inputDataSourcePath string
-// 		expected            Service
-// 	}{
-// 		{
-// 			name:                "inputDataSourceType empty - inputDataSourcePath set to FILE Path - Use default HTTP value for inputDataSourceType",
-// 			inputDataSourcePath: defaultFileDataSource,
-// 			expected: &urlStatDataService{
-// 				dataSourceType: urlDataSourceHttp,
-// 				dataSourcePath: defaultFileDataSource,
-// 			},
-// 		},
-// 		{
-// 			name:                "inputDataSourceType empty - inputDataSourcePath set - Use set values",
-// 			inputDataSourcePath: defaultHttpDataSource,
-// 			expected: &urlStatDataService{
-// 				dataSourceType: urlDataSourceHttp,
-// 				dataSourcePath: defaultHttpDataSource,
-// 			},
-// 		},
-// 		{
-// 			name:                "inputDataSourceType set to HTTP - inputDataSourcePath empty - Use default values",
-// 			inputDataSourceType: urlDataSourceHttp,
-// 			expected: &urlStatDataService{
-// 				dataSourceType: urlDataSourceHttp,
-// 				dataSourcePath: defaultHttpDataSource,
-// 			},
-// 		},
-// 		{
-// 			name:                "inputDataSourceType set to File - inputDataSourcePath empty - Use default values",
-// 			inputDataSourceType: urlDataSourceFile,
-// 			expected: &urlStatDataService{
-// 				dataSourceType: urlDataSourceFile,
-// 				dataSourcePath: defaultFileDataSource,
-// 			},
-// 		},
-// 		{
-// 			name: "Empty inputs - Use default values",
-// 			expected: &urlStatDataService{
-// 				dataSourceType: urlDataSourceHttp,
-// 				dataSourcePath: defaultHttpDataSource,
-// 			},
-// 		},
-// 	}
+	testCases := []struct {
+		name                string
+		inputDataSourceType string
+		inputDataSourcePath string
+		expected            service
+		expectedErr         bool
+	}{
+		{
+			name:                "inputDataSourceType empty - inputDataSourcePath set to FILE Path - Use default HTTP value for inputDataSourceType",
+			inputDataSourcePath: defaultFileDataSource,
+			expected: &urlStatDataService{
+				dataSourceType: urlDataSourceHttp,
+				dataSourcePath: defaultFileDataSource,
+			},
+		},
+		{
+			name:                "inputDataSourceType empty - inputDataSourcePath set - Use set values",
+			inputDataSourcePath: defaultHttpDataSource,
+			expected: &urlStatDataService{
+				dataSourceType: urlDataSourceHttp,
+				dataSourcePath: defaultHttpDataSource,
+			},
+		},
+		{
+			name:                "inputDataSourceType set to HTTP - inputDataSourcePath empty - Use default values",
+			inputDataSourceType: urlDataSourceHttp,
+			expected: &urlStatDataService{
+				dataSourceType: urlDataSourceHttp,
+				dataSourcePath: defaultHttpDataSource,
+			},
+		},
+		{
+			name:                "inputDataSourceType set to File - inputDataSourcePath empty - Use default values",
+			inputDataSourceType: urlDataSourceFile,
+			expected: &urlStatDataService{
+				dataSourceType: urlDataSourceFile,
+				dataSourcePath: defaultFileDataSource,
+			},
+		},
+		{
+			name: "Empty inputs - Use default values",
+			expected: &urlStatDataService{
+				dataSourceType: urlDataSourceHttp,
+				dataSourcePath: defaultHttpDataSource,
+			},
+		},
+	}
 
-// 	for _, tc := range testCases {
-// 		tc := tc
-// 		t.Run(tc.name, func(t *testing.T) {
-// 			result := newUrlStatDataService(tc.inputDataSourceType, tc.inputDataSourcePath)
-// 			assert := reflect.DeepEqual(result, tc.expected)
+	for _, tc := range testCases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			result, resultErr := NewUrlStatDataService(tc.inputDataSourceType, tc.inputDataSourcePath)
+			assert := reflect.DeepEqual(result, tc.expected)
 
-// 			if !assert {
-// 				t.Fatalf("Test Failed: %v. Expected Result: %v Actual Result: %v",
-// 					tc.name, tc.expected, result)
-// 			}
-// 		})
-// 	}
-// }
+			if !assert {
+				t.Fatalf("Test Failed: %v. Expected Result: %v Actual Result: %v",
+					tc.name, tc.expected, result)
+			}
+			assertErr := resultErr != nil
+			if assertErr != tc.expectedErr {
+				t.Fatalf("Test Failed: %v. Expected Error to occur: %v. Returned Error: %v",
+					tc.name, tc.expectedErr, resultErr.Error())
+			}
+		})
+	}
+}
 
 func TestGetUrlStatsData_MockServer(t *testing.T) {
-	const usupported = "usupported"
-	var (
-		testFolderDataSource = "testGetUrlStatsData"
+	const (
+		usupported = "usupported"
 
+		testFolderDataSource = "testGetUrlStatsData"
+		autogeneratedUrlDir  = "autogenerated-url"
+		autogeneratedUrlFile = "temp-url-autocreated"
+
+		inputUrlPath = "/test.json"
+	)
+
+	var (
 		testCtx context.Context = context.Background()
 
-		autogeneratedUrlDir  = "autogenerated-url"
-		gitKeepFile          = ".gitkeep"
-		autogeneratedUrlFile = "temp-url-autocreated"
-		inputUrlPath         = "/test.json"
-		testInputUrlStatData = &urlStatData{
-			Data: []*urlStat{
+		testInputUrlStatData = &types.UrlStatData{
+			Data: []*types.UrlStat{
 				{
 					Url:            "www.example.com/abc1",
 					Views:          1000,
@@ -127,51 +139,66 @@ func TestGetUrlStatsData_MockServer(t *testing.T) {
 	testCases := []struct {
 		name                string
 		inputDataSourceType string
-		inputTestFileDir    string
-		expectedUrlStats    *urlStatData
+		expectedUrlStats    *types.UrlStatData
 		expectedErr         bool
 	}{
 		{
 			name:                fmt.Sprintf("Valid Data Source Type %q", urlDataSourceFile),
 			inputDataSourceType: urlDataSourceFile,
-			inputTestFileDir:    autogeneratedUrlFile,
 			expectedUrlStats:    testInputUrlStatData,
 			expectedErr:         false,
 		},
 		{
 			name:                fmt.Sprintf("Valid Data Source Type %q", urlDataSourceHttp),
 			inputDataSourceType: urlDataSourceHttp,
-			inputTestFileDir:    autogeneratedUrlFile,
 			expectedUrlStats:    testInputUrlStatData,
 			expectedErr:         false,
 		},
 		{
 			name:                fmt.Sprintf("Invalid Data Source Type %q", usupported),
 			inputDataSourceType: usupported,
-			inputTestFileDir:    autogeneratedUrlFile,
 			expectedErr:         true,
 		},
 	}
 	for _, tc := range testCases {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
-			fullPath := filepath.Join(serviceTestBasePath, serviceTestRelativePath, testFolderDataSource, autogeneratedUrlDir)
-			// Remove .gitkeep file and create it again once the test is finished
-			os.Remove(filepath.Join(fullPath, gitKeepFile))
-			defer os.Create(filepath.Join(fullPath, gitKeepFile))
+			fullPath := filepath.Join(utils.BasePath, serviceTestRelativePath, testFolderDataSource, autogeneratedUrlDir)
+
+			if err := os.RemoveAll(fullPath); err != nil {
+				t.Fatalf("Internal Testing error: %v", err)
+			}
+			if err := os.MkdirAll(fullPath, 0755); err != nil {
+				t.Fatalf("Internal Testing error: %v", err)
+			}
+			defer func() {
+				parentDir := fullPath[:strings.LastIndex(fullPath, "/")]
+				if err := os.RemoveAll(parentDir); err != nil {
+					t.Fatalf("Internal Testing error: %v", err)
+				}
+			}()
 
 			s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				w.Header().Set("Content-Type", "application/json")
 				_ = json.NewEncoder(w).Encode(testInputUrlStatData)
 			}))
 
-			fullFilePath := filepath.Join(fullPath, autogeneratedUrlFile) + validUrlSuffixFileTypeJson
+			fullFilePath := filepath.Join(fullPath, autogeneratedUrlFile) + fileTypeBySource[tc.inputDataSourceType]
 			file, err := os.Create(fullFilePath)
 			if err != nil {
 				t.Fatalf("Internal Testing error: %v", err)
 			}
-			defer file.Close()
-			defer os.Remove(fullFilePath)
+
+			defer func() {
+				if err := file.Close(); err != nil {
+					t.Fatalf("Internal Testing error: %v", err)
+				}
+			}()
+			defer func() {
+				if err := os.RemoveAll(fullFilePath); err != nil {
+					t.Fatalf("Internal Testing error: %v", err)
+				}
+			}()
 
 			var fileContent string
 			switch tc.inputDataSourceType {
@@ -321,11 +348,10 @@ func TestGetUrlStatsDataHttpEndpointsFromFile_MockServer(t *testing.T) {
 		testCtx context.Context = context.Background()
 
 		autogeneratedUrlDir  = "autogenerated-url"
-		gitKeepFile          = ".gitkeep"
 		autogeneratedUrlFile = "temp-url-autocreated"
 		inputUrlPath         = "/test.json"
-		testInputUrlStatData = &urlStatData{
-			Data: []*urlStat{
+		testInputUrlStatData = &types.UrlStatData{
+			Data: []*types.UrlStat{
 				{
 					Url:            "www.example.com/abc1",
 					Views:          1000,
@@ -347,7 +373,7 @@ func TestGetUrlStatsDataHttpEndpointsFromFile_MockServer(t *testing.T) {
 	testCases := []struct {
 		name              string
 		inputOverwriteUrl string
-		expectedUrlStats  *urlStatData
+		expectedUrlStats  *types.UrlStatData
 		expectedErr       bool
 	}{
 		{
@@ -369,26 +395,49 @@ func TestGetUrlStatsDataHttpEndpointsFromFile_MockServer(t *testing.T) {
 		},
 	}
 
+	// Overwritting global params to reduce test time
+	retryAttempts = 1
+	backoffPeriods = []time.Duration{0}
+
 	for _, tc := range testCases {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
-			fullPath := filepath.Join(serviceTestBasePath, serviceTestRelativePath, testFolderDataSource, autogeneratedUrlDir)
-			// Remove .gitkeep file and create it again once the test is finished
-			os.Remove(filepath.Join(fullPath, gitKeepFile))
-			defer os.Create(filepath.Join(fullPath, gitKeepFile))
+			fullPath := filepath.Join(utils.BasePath, serviceTestRelativePath, testFolderDataSource, autogeneratedUrlDir)
+
+			if err := os.RemoveAll(fullPath); err != nil {
+				t.Fatalf("Internal Testing error: %v", err)
+			}
+			if err := os.MkdirAll(fullPath, 0755); err != nil {
+				t.Fatalf("Internal Testing error: %v", err)
+			}
+			defer func() {
+				parentDir := fullPath[:strings.LastIndex(fullPath, "/")]
+				if err := os.RemoveAll(parentDir); err != nil {
+					t.Fatalf("Internal Testing error: %v", err)
+				}
+			}()
 
 			s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				w.Header().Set("Content-Type", "application/json")
 				_ = json.NewEncoder(w).Encode(testInputUrlStatData)
 			}))
 
-			fullFilePath := filepath.Join(fullPath, autogeneratedUrlFile) + validUrlSuffixFileTypeJson
+			fullFilePath := filepath.Join(fullPath, autogeneratedUrlFile) + fileTypeBySource[testUrlDataSourceFile]
 			file, err := os.Create(fullFilePath)
 			if err != nil {
 				t.Fatalf("Internal Testing error: %v", err)
 			}
-			defer file.Close()
-			defer os.Remove(fullFilePath)
+
+			defer func() {
+				if err := os.RemoveAll(fullFilePath); err != nil {
+					t.Fatalf("Internal Testing error: %v", err)
+				}
+			}()
+			defer func() {
+				if err := file.Close(); err != nil {
+					t.Fatalf("Internal Testing error: %v", err)
+				}
+			}()
 
 			testUrl := s.URL + inputUrlPath
 			if tc.inputOverwriteUrl != "" {
@@ -412,11 +461,7 @@ func TestGetUrlStatsDataHttpEndpointsFromFile_MockServer(t *testing.T) {
 				dataSourcePath: filepath.Join(serviceTestRelativePath, testFolderDataSource, autogeneratedUrlDir),
 			}
 
-			// Overwritting config values to reduce test time
-			retryAttempts = 1
-			backoffPeriods = []time.Duration{0}
-
-			result, resultErr := urlStatService.getUrlStatsDataHttpEndpointsFromFile(testCtx, dirEntries, serviceTestBasePath)
+			result, resultErr := urlStatService.getUrlStatsDataHttpEndpointsFromFile(testCtx)
 			assert := reflect.DeepEqual(result, tc.expectedUrlStats)
 			if !assert {
 				t.Fatalf("Test Failed: %v. Expected Result: %v Actual Result: %v",
@@ -440,9 +485,7 @@ func TestGetUrlStatsDataHttpEndpointsFromFile_Fail(t *testing.T) {
 
 		testCtx context.Context = context.Background()
 
-		emptyDir    = "empty-dir"
-		gitKeepFile = ".gitkeep"
-		// invalidFileExtension = "invalid-file-extension"
+		emptyDir         = "empty-dir"
 		invalidUrlFormat = "invalid-url-format"
 	)
 	testCases := []struct {
@@ -450,7 +493,7 @@ func TestGetUrlStatsDataHttpEndpointsFromFile_Fail(t *testing.T) {
 		inputTestDir       string
 		inputTestFileCount int
 		inputBasePath      string
-		expectedUrlStats   *urlStatData
+		expectedUrlStats   *types.UrlStatData
 		expectedErr        bool
 	}{
 		{
@@ -459,12 +502,6 @@ func TestGetUrlStatsDataHttpEndpointsFromFile_Fail(t *testing.T) {
 			inputTestFileCount: 2,
 			expectedErr:        true,
 		},
-		// {
-		// 	name:               "Invalid File extension",
-		// 	inputTestFileDir:   filepath.Join(testFolderDataSource, invalidFileExtension),
-		// 	inputTestFileCount: 2,
-		// 	expectedErr:        true,
-		// },
 		// {
 		// 	// Can't test as is. Using test.FS could enable this test
 		// 	name:                  "Non-existing file in file list",
@@ -482,12 +519,17 @@ func TestGetUrlStatsDataHttpEndpointsFromFile_Fail(t *testing.T) {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-			fullPath := filepath.Join(serviceTestBasePath, serviceTestRelativePath, testFolderDataSource, tc.inputTestDir)
+			fullPath := filepath.Join(utils.BasePath, serviceTestRelativePath, testFolderDataSource, tc.inputTestDir)
 			if tc.inputTestDir == emptyDir {
-				// Remove .gitkeep file and create it again once the test is finished
-				fullFilePath := filepath.Join(fullPath, gitKeepFile)
-				os.Remove(fullFilePath)
-				defer os.Create(fullFilePath)
+				os.RemoveAll(fullPath)
+				if err := os.Mkdir(fullPath, 0755); err != nil {
+					t.Fatalf("Internal Testing error: %v", err)
+				}
+				defer func() {
+					if err := os.RemoveAll(fullPath); err != nil {
+						t.Fatalf("Internal Testing error: %v", err)
+					}
+				}()
 			}
 			dirEntries, err := os.ReadDir(fullPath)
 			if err != nil {
@@ -503,7 +545,7 @@ func TestGetUrlStatsDataHttpEndpointsFromFile_Fail(t *testing.T) {
 				dataSourceType: testUrlDataSourceFile,
 				dataSourcePath: filepath.Join(serviceTestRelativePath, tc.inputTestDir),
 			}
-			result, resultErr := urlStatService.getUrlStatsDataHttpEndpointsFromFile(testCtx, dirEntries, serviceTestBasePath)
+			result, resultErr := urlStatService.getUrlStatsDataHttpEndpointsFromFile(testCtx)
 			assert := reflect.DeepEqual(result, tc.expectedUrlStats)
 			if !assert {
 				t.Fatalf("Test Failed: %v. Expected Result: %v Actual Result: %v",
@@ -523,8 +565,8 @@ func TestGetUrlStatsDataHttpEndpointsFromFile_Fail(t *testing.T) {
 func TestGetUrlStatsDataHttp_MockServer(t *testing.T) {
 	var (
 		inputUrlPath         = "/test.json"
-		testInputUrlStatData = &urlStatData{
-			Data: []*urlStat{
+		testInputUrlStatData = &types.UrlStatData{
+			Data: []*types.UrlStat{
 				{
 					Url:            "www.example.com/abc1",
 					Views:          1000,
@@ -546,7 +588,7 @@ func TestGetUrlStatsDataHttp_MockServer(t *testing.T) {
 	testCases := []struct {
 		name              string
 		inputOverwriteUrl string
-		expectedUrlStats  *urlStatData
+		expectedUrlStats  *types.UrlStatData
 		expectedErr       bool
 	}{
 		{
@@ -568,40 +610,22 @@ func TestGetUrlStatsDataHttp_MockServer(t *testing.T) {
 		},
 	}
 
+	// Overwritting global params to reduce test time
+	retryAttempts = 1
+	backoffPeriods = []time.Duration{0}
+
 	for _, tc := range testCases {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
-			// fullPath := filepath.Join(serviceTestBasePath, serviceTestRelativePath, testFolderDataSource, autogeneratedUrlDir)
-			// // Remove .gitkeep file and create it again once the test is finished
-			// os.Remove(filepath.Join(fullPath, gitKeepFile))
-			// defer os.Create(filepath.Join(fullPath, gitKeepFile))
-
 			s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				w.Header().Set("Content-Type", "application/json")
 				_ = json.NewEncoder(w).Encode(testInputUrlStatData)
 			}))
 
-			// fullFilePath := filepath.Join(fullPath, autogeneratedUrlFile) + validUrlSuffixFileTypeJson
-			// file, err := os.Create(fullFilePath)
-			// if err != nil {
-			// 	t.Fatalf("Internal Testing error: %v", err)
-			// }
-			// defer file.Close()
-			// defer os.Remove(fullFilePath)
-
 			testUrl := s.URL + inputUrlPath
 			if tc.inputOverwriteUrl != "" {
 				testUrl = tc.inputOverwriteUrl + inputUrlPath
 			}
-
-			// urlStatService := urlStatDataService{
-			// 	dataSourceType: testUrlDataSourceFile,
-			// 	dataSourcePath: filepath.Join(serviceTestRelativePath, testFolderDataSource, autogeneratedUrlDir),
-			// }
-
-			// Overwritting config values to reduce test time
-			retryAttempts = 1
-			backoffPeriods = []time.Duration{0}
 
 			result, resultErr := getUrlStatsDataHttp(testUrl)
 			assert := reflect.DeepEqual(result, tc.expectedUrlStats)
@@ -626,17 +650,18 @@ func TestGetUrlStatsDataFromFile(t *testing.T) {
 		testFolderDataSource  = "testGetUrlStatsDataFromFile"
 
 		emptyDir                  = "empty-dir"
-		gitKeepFile               = ".gitkeep"
 		invalidJsonFormat         = "invalid-json-format"
 		validJsonFormat           = "valid-json-format"
 		validAndInvalidJsonFormat = "valid-and-invalid-json-format"
+
+		testCtx context.Context = context.Background()
 	)
 	testCases := []struct {
 		name               string
 		inputTestDir       string
 		inputTestFileCount int
 		inputBasePath      string
-		expectedUrlStats   *urlStatData
+		expectedUrlStats   *types.UrlStatData
 		expectedErr        bool
 	}{
 		{
@@ -644,8 +669,8 @@ func TestGetUrlStatsDataFromFile(t *testing.T) {
 			inputTestDir:       validAndInvalidJsonFormat,
 			inputTestFileCount: 2,
 			//`{"data":[{"url":"www.example.com/abc1","views":1000,"relevanceScore":0.5}]}`,
-			expectedUrlStats: &urlStatData{
-				Data: []*urlStat{
+			expectedUrlStats: &types.UrlStatData{
+				Data: []*types.UrlStat{
 					{
 						Url:            "www.example.com/abc1",
 						Views:          1000,
@@ -660,8 +685,8 @@ func TestGetUrlStatsDataFromFile(t *testing.T) {
 			inputTestDir:       validJsonFormat,
 			inputTestFileCount: 1,
 			//`{"data":[{"url":"www.example.com/abc1","views":1000,"relevanceScore":0.5}]}`,
-			expectedUrlStats: &urlStatData{
-				Data: []*urlStat{
+			expectedUrlStats: &types.UrlStatData{
+				Data: []*types.UrlStat{
 					{
 						Url:            "www.example.com/abc1",
 						Views:          1000,
@@ -694,12 +719,17 @@ func TestGetUrlStatsDataFromFile(t *testing.T) {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-			fullPath := filepath.Join(serviceTestBasePath, serviceTestRelativePath, testFolderDataSource, tc.inputTestDir)
+			fullPath := filepath.Join(utils.BasePath, serviceTestRelativePath, testFolderDataSource, tc.inputTestDir)
 			if tc.inputTestDir == emptyDir {
-				// Remove .gitkeep file and create it again once the test is finished
-				fullFilePath := filepath.Join(fullPath, gitKeepFile)
-				os.Remove(fullFilePath)
-				defer os.Create(fullFilePath)
+				os.RemoveAll(fullPath)
+				if err := os.Mkdir(fullPath, 0755); err != nil {
+					t.Fatalf("Internal Testing error: %v", err)
+				}
+				defer func() {
+					if err := os.RemoveAll(fullPath); err != nil {
+						t.Fatalf("Internal Testing error: %v", err)
+					}
+				}()
 			}
 			dirEntries, err := os.ReadDir(fullPath)
 			if err != nil {
@@ -715,7 +745,7 @@ func TestGetUrlStatsDataFromFile(t *testing.T) {
 				dataSourceType: testUrlDataSourceFile,
 				dataSourcePath: filepath.Join(serviceTestRelativePath, testFolderDataSource, tc.inputTestDir),
 			}
-			result, resultErr := urlStatService.getUrlStatsDataFromFile(dirEntries, serviceTestBasePath)
+			result, resultErr := urlStatService.getUrlStatsDataFromFile(testCtx)
 			assert := reflect.DeepEqual(result, tc.expectedUrlStats)
 			if !assert {
 				t.Fatalf("Test Failed: %v. Expected Result: %v Actual Result: %v",
@@ -747,25 +777,25 @@ func TestValidateUrls(t *testing.T) {
 		{
 			name: "mix of valid and invalid inputUrls",
 			inputUrls: []string{
-				validUrlPrefixProtocolHttp + testDomain + validUrlSuffixFileTypeJson,
-				validUrlPrefixProtocolHttps + testDomain + validUrlSuffixFileTypeJson,
+				validUrlPrefixProtocolHttp + testDomain + fileTypeJson,
+				validUrlPrefixProtocolHttps + testDomain + fileTypeJson,
 				unsupported,
 			},
 			expected: []string{
-				validUrlPrefixProtocolHttp + testDomain + validUrlSuffixFileTypeJson,
-				validUrlPrefixProtocolHttps + testDomain + validUrlSuffixFileTypeJson,
+				validUrlPrefixProtocolHttp + testDomain + fileTypeJson,
+				validUrlPrefixProtocolHttps + testDomain + fileTypeJson,
 			},
 			expectedErr: false,
 		},
 		{
 			name: "only valid inputUrls",
 			inputUrls: []string{
-				validUrlPrefixProtocolHttp + testDomain + validUrlSuffixFileTypeJson,
-				validUrlPrefixProtocolHttps + testDomain + validUrlSuffixFileTypeJson,
+				validUrlPrefixProtocolHttp + testDomain + fileTypeJson,
+				validUrlPrefixProtocolHttps + testDomain + fileTypeJson,
 			},
 			expected: []string{
-				validUrlPrefixProtocolHttp + testDomain + validUrlSuffixFileTypeJson,
-				validUrlPrefixProtocolHttps + testDomain + validUrlSuffixFileTypeJson,
+				validUrlPrefixProtocolHttp + testDomain + fileTypeJson,
+				validUrlPrefixProtocolHttps + testDomain + fileTypeJson,
 			},
 			expectedErr: false,
 		},
@@ -787,7 +817,7 @@ func TestValidateUrls(t *testing.T) {
 		{
 			name: "only invalid inputUrls: Prefix invalid; Suffix valid",
 			inputUrls: []string{
-				unsupported + testDomain + validUrlSuffixFileTypeJson,
+				unsupported + testDomain + fileTypeJson,
 			},
 			expectedErr: true,
 		},
@@ -882,8 +912,8 @@ func TestIsValidUrlSuffixFileType(t *testing.T) {
 		expected bool
 	}{
 		{
-			name:     fmt.Sprintf("inputUrl has Suffix - %s", validUrlSuffixFileTypeJson),
-			inputUrl: testProtocolDomainFilename + validUrlSuffixFileTypeJson,
+			name:     fmt.Sprintf("inputUrl has Suffix - %s", fileTypeJson),
+			inputUrl: testProtocolDomainFilename + fileTypeJson,
 			expected: true,
 		},
 		{
@@ -913,27 +943,27 @@ func TestIsValidUrlSuffixFileType(t *testing.T) {
 }
 
 func TestMergeSort(t *testing.T) {
-	urlStatA := &urlStat{
+	urlStatA := &types.UrlStat{
 		Url:            "a",
 		Views:          1,
 		RelevanceScore: 0.1,
 	}
-	urlStatB := &urlStat{
+	urlStatB := &types.UrlStat{
 		Url:            "b",
 		Views:          2,
 		RelevanceScore: 0.2,
 	}
-	urlStatC := &urlStat{
+	urlStatC := &types.UrlStat{
 		Url:            "c",
 		Views:          3,
 		RelevanceScore: 0.3,
 	}
-	urlStatD := &urlStat{
+	urlStatD := &types.UrlStat{
 		Url:            "d",
 		Views:          4,
 		RelevanceScore: 0.4,
 	}
-	urlStatE := &urlStat{
+	urlStatE := &types.UrlStat{
 		Url:            "e",
 		Views:          5,
 		RelevanceScore: 0.5,
@@ -942,20 +972,20 @@ func TestMergeSort(t *testing.T) {
 
 	testCasesUrlStat := []struct {
 		name                  string
-		inputUrlStat          *urlStatSlice
-		expectedUrlStatResult *urlStatSlice
+		inputUrlStat          *types.UrlStatSlice
+		expectedUrlStatResult *types.UrlStatSlice
 		expectedErr           bool
 	}{
 		{
 			name: "urlStat with 5 element mixed order",
-			inputUrlStat: &urlStatSlice{
+			inputUrlStat: &types.UrlStatSlice{
 				urlStatA,
 				urlStatB,
 				urlStatD,
 				urlStatE,
 				urlStatC,
 			},
-			expectedUrlStatResult: &urlStatSlice{
+			expectedUrlStatResult: &types.UrlStatSlice{
 				urlStatA,
 				urlStatB,
 				urlStatC,
@@ -965,14 +995,14 @@ func TestMergeSort(t *testing.T) {
 		},
 		{
 			name: "urlStat with 5 element all out of order",
-			inputUrlStat: &urlStatSlice{
+			inputUrlStat: &types.UrlStatSlice{
 				urlStatE,
 				urlStatD,
 				urlStatC,
 				urlStatB,
 				urlStatA,
 			},
-			expectedUrlStatResult: &urlStatSlice{
+			expectedUrlStatResult: &types.UrlStatSlice{
 				urlStatA,
 				urlStatB,
 				urlStatC,
@@ -982,39 +1012,39 @@ func TestMergeSort(t *testing.T) {
 		},
 		{
 			name: "urlStat with 2 element out of order",
-			inputUrlStat: &urlStatSlice{
+			inputUrlStat: &types.UrlStatSlice{
 				urlStatB,
 				urlStatA,
 			},
-			expectedUrlStatResult: &urlStatSlice{
+			expectedUrlStatResult: &types.UrlStatSlice{
 				urlStatA,
 				urlStatB,
 			},
 		},
 		{
 			name: "urlStat with 2 element in order",
-			inputUrlStat: &urlStatSlice{
+			inputUrlStat: &types.UrlStatSlice{
 				urlStatA,
 				urlStatB,
 			},
-			expectedUrlStatResult: &urlStatSlice{
+			expectedUrlStatResult: &types.UrlStatSlice{
 				urlStatA,
 				urlStatB,
 			},
 		},
 		{
 			name: "urlStat with 1 element",
-			inputUrlStat: &urlStatSlice{
+			inputUrlStat: &types.UrlStatSlice{
 				urlStatE,
 			},
-			expectedUrlStatResult: &urlStatSlice{
+			expectedUrlStatResult: &types.UrlStatSlice{
 				urlStatE,
 			},
 		},
 		{
 			name:                  "empty urlStat",
-			inputUrlStat:          &urlStatSlice{},
-			expectedUrlStatResult: &urlStatSlice{},
+			inputUrlStat:          &types.UrlStatSlice{},
+			expectedUrlStatResult: &types.UrlStatSlice{},
 		},
 		{
 			name:                  "nil urlStat",
@@ -1073,18 +1103,18 @@ func TestIsSortedByOption(t *testing.T) {
 	testCases := []struct {
 		name            string
 		inputSortOption string
-		inputFirst      *urlStat
-		inputLast       *urlStat
+		inputFirst      *types.UrlStat
+		inputLast       *types.UrlStat
 		expectedBool    bool
 		expectedErr     bool
 	}{
 		{
 			name:            "inputs: sortOption: viewsOption ; first > last",
 			inputSortOption: viewsOption,
-			inputFirst: &urlStat{
+			inputFirst: &types.UrlStat{
 				Views: higherValue,
 			},
-			inputLast: &urlStat{
+			inputLast: &types.UrlStat{
 				Views: lowerValue,
 			},
 			expectedBool: false,
@@ -1092,10 +1122,10 @@ func TestIsSortedByOption(t *testing.T) {
 		{
 			name:            "inputs: sortOption: viewsOption ; first < last",
 			inputSortOption: viewsOption,
-			inputFirst: &urlStat{
+			inputFirst: &types.UrlStat{
 				Views: lowerValue,
 			},
-			inputLast: &urlStat{
+			inputLast: &types.UrlStat{
 				Views: higherValue,
 			},
 			expectedBool: true,
@@ -1103,10 +1133,10 @@ func TestIsSortedByOption(t *testing.T) {
 		{
 			name:            "inputs: sortOption: relevancescoreOption ; first > last",
 			inputSortOption: relevancescoreOption,
-			inputFirst: &urlStat{
+			inputFirst: &types.UrlStat{
 				RelevanceScore: higherValue,
 			},
-			inputLast: &urlStat{
+			inputLast: &types.UrlStat{
 				RelevanceScore: lowerValue,
 			},
 			expectedBool: false,
@@ -1114,10 +1144,10 @@ func TestIsSortedByOption(t *testing.T) {
 		{
 			name:            "inputs: sortOption: relevancescoreOption ; first < last",
 			inputSortOption: relevancescoreOption,
-			inputFirst: &urlStat{
+			inputFirst: &types.UrlStat{
 				RelevanceScore: lowerValue,
 			},
-			inputLast: &urlStat{
+			inputLast: &types.UrlStat{
 				RelevanceScore: higherValue,
 			},
 			expectedBool: true,
@@ -1125,38 +1155,18 @@ func TestIsSortedByOption(t *testing.T) {
 		{
 			name:            "inputs: sortOption: unsupportedTag ; first: not nil; last: not nil",
 			inputSortOption: unsupportedTag,
-			inputFirst:      &urlStat{},
-			inputLast:       &urlStat{},
+			inputFirst:      &types.UrlStat{},
+			inputLast:       &types.UrlStat{},
 			expectedErr:     true,
 		},
 		{
-			name:        "inputs: sortOption: nil ; first: nil; last: not nil",
-			inputLast:   &urlStat{},
+			name:        "inputs: sortOption: empty ; first: not nil; last: empty",
+			inputLast:   &types.UrlStat{},
 			expectedErr: true,
 		},
 		{
-			name:        "inputs: sortOption: nil ; first: nil; last: not nil",
-			inputLast:   &urlStat{},
-			expectedErr: true,
-		},
-		{
-			name:        "inputs: sortOption: nil ; first: nil; last: not nil",
-			inputLast:   &urlStat{},
-			expectedErr: true,
-		},
-		{
-			name:        "inputs: sortOption: nil ; first: not nil; last: nil",
-			inputFirst:  &urlStat{},
-			expectedErr: true,
-		},
-		{
-			name:        "inputs: sortOption: nil ; first: not nil; last: nil",
-			inputFirst:  &urlStat{},
-			expectedErr: true,
-		},
-		{
-			name:        "inputs: sortOption: nil ; first: not nil; last: nil",
-			inputFirst:  &urlStat{},
+			name:        "inputs: sortOption: empty ; first: empty; last: nil",
+			inputFirst:  &types.UrlStat{},
 			expectedErr: true,
 		},
 		{
@@ -1207,39 +1217,39 @@ func TestIsSortedByRelevanceScoreAscending(t *testing.T) {
 	)
 	testCases := []struct {
 		name         string
-		inputFirst   *urlStat
-		inputLast    *urlStat
+		inputFirst   *types.UrlStat
+		inputLast    *types.UrlStat
 		expectedBool bool
 		expectedErr  bool
 	}{
 		{
 			name: "input: first < last",
-			inputFirst: &urlStat{
+			inputFirst: &types.UrlStat{
 				RelevanceScore: lowerValue,
 			},
-			inputLast: &urlStat{
+			inputLast: &types.UrlStat{
 				RelevanceScore: higherValue,
 			},
 			expectedBool: true,
 		},
 		{
 			name: "input: first > last",
-			inputFirst: &urlStat{
+			inputFirst: &types.UrlStat{
 				RelevanceScore: higherValue,
 			},
-			inputLast: &urlStat{
+			inputLast: &types.UrlStat{
 				RelevanceScore: lowerValue,
 			},
 			expectedBool: false,
 		},
 		{
 			name:        "input first: not nil; input last: nil",
-			inputLast:   &urlStat{},
+			inputLast:   &types.UrlStat{},
 			expectedErr: true,
 		},
 		{
 			name:        "input first: nil; input last: not nil",
-			inputFirst:  &urlStat{},
+			inputFirst:  &types.UrlStat{},
 			expectedErr: true,
 		},
 		{
@@ -1275,39 +1285,39 @@ func TestIsSortedByViewsScoreAscending(t *testing.T) {
 	)
 	testCases := []struct {
 		name         string
-		inputFirst   *urlStat
-		inputLast    *urlStat
+		inputFirst   *types.UrlStat
+		inputLast    *types.UrlStat
 		expectedBool bool
 		expectedErr  bool
 	}{
 		{
 			name: "input: first < last",
-			inputFirst: &urlStat{
+			inputFirst: &types.UrlStat{
 				Views: lowerValue,
 			},
-			inputLast: &urlStat{
+			inputLast: &types.UrlStat{
 				Views: higherValue,
 			},
 			expectedBool: true,
 		},
 		{
 			name: "input: first > last",
-			inputFirst: &urlStat{
+			inputFirst: &types.UrlStat{
 				Views: higherValue,
 			},
-			inputLast: &urlStat{
+			inputLast: &types.UrlStat{
 				Views: lowerValue,
 			},
 			expectedBool: false,
 		},
 		{
 			name:        "input first: not nil; input last: nil",
-			inputLast:   &urlStat{},
+			inputLast:   &types.UrlStat{},
 			expectedErr: true,
 		},
 		{
 			name:        "input first: nil; input last: not nil",
-			inputFirst:  &urlStat{},
+			inputFirst:  &types.UrlStat{},
 			expectedErr: true,
 		},
 		{
@@ -1474,88 +1484,95 @@ func TestGetLimitValue(t *testing.T) {
 	}
 }
 
+func newLimitUrlValues(d int) url.Values {
+	return map[string][]string{
+		limitFilterOption: {
+			fmt.Sprintf("%d", d),
+		},
+	}
+}
 func TestLimitResponse(t *testing.T) {
 
 	testCases := []struct {
 		name                 string
-		inputUrlStatSlice    *urlStatSlice
-		inputLimit           int
-		expectedUrlStatSlice *urlStatSlice
+		inputUrlStatSlice    *types.UrlStatSlice
+		inputLimit           url.Values
+		expectedUrlStatSlice *types.UrlStatSlice
 		expectedErr          bool
 	}{
 		{
 			name: "urlStat: not empty; 0 < Limit < len([]urlStat); filter",
-			inputUrlStatSlice: &urlStatSlice{
+			inputUrlStatSlice: &types.UrlStatSlice{
 				{},
 				{},
 			},
-			inputLimit: 1,
-			expectedUrlStatSlice: &urlStatSlice{
+			inputLimit: newLimitUrlValues(1),
+			expectedUrlStatSlice: &types.UrlStatSlice{
 				{},
 			},
 		},
 		{
 			name: "urlStat: not empty; Limit > len([]urlStat); no filter",
-			inputUrlStatSlice: &urlStatSlice{
+			inputUrlStatSlice: &types.UrlStatSlice{
 				{},
 				{},
 			},
-			inputLimit: 3,
-			expectedUrlStatSlice: &urlStatSlice{
+			inputLimit: newLimitUrlValues(3),
+			expectedUrlStatSlice: &types.UrlStatSlice{
 				{},
 				{},
 			},
 		},
 		{
 			name: "urlStat: not empty; Limit < 0; no filter",
-			inputUrlStatSlice: &urlStatSlice{
+			inputUrlStatSlice: &types.UrlStatSlice{
 				{},
 				{},
 			},
-			inputLimit: -1,
-			expectedUrlStatSlice: &urlStatSlice{
+			inputLimit: newLimitUrlValues(-1),
+			expectedUrlStatSlice: &types.UrlStatSlice{
 				{},
 				{},
 			},
 		},
 		{
 			name: "urlStat: not empty; Limit == 0; no filter",
-			inputUrlStatSlice: &urlStatSlice{
+			inputUrlStatSlice: &types.UrlStatSlice{
 				{},
 				{},
 			},
-			inputLimit: 0,
-			expectedUrlStatSlice: &urlStatSlice{
+			inputLimit: newLimitUrlValues(0),
+			expectedUrlStatSlice: &types.UrlStatSlice{
 				{},
 				{},
 			},
 		},
 		{
 			name:                 "urlStat: empty; Limit > 0",
-			inputUrlStatSlice:    &urlStatSlice{},
-			inputLimit:           1,
-			expectedUrlStatSlice: &urlStatSlice{},
+			inputUrlStatSlice:    &types.UrlStatSlice{},
+			inputLimit:           newLimitUrlValues(1),
+			expectedUrlStatSlice: &types.UrlStatSlice{},
 		},
 		{
 			name:                 "urlStat: empty; Limit < 0",
-			inputUrlStatSlice:    &urlStatSlice{},
-			inputLimit:           -1,
-			expectedUrlStatSlice: &urlStatSlice{},
+			inputUrlStatSlice:    &types.UrlStatSlice{},
+			inputLimit:           newLimitUrlValues(-1),
+			expectedUrlStatSlice: &types.UrlStatSlice{},
 		},
 		{
 			name:                 "urlStat: empty; Limit == 0",
-			inputUrlStatSlice:    &urlStatSlice{},
-			inputLimit:           0,
-			expectedUrlStatSlice: &urlStatSlice{},
+			inputUrlStatSlice:    &types.UrlStatSlice{},
+			inputLimit:           newLimitUrlValues(0),
+			expectedUrlStatSlice: &types.UrlStatSlice{},
 		},
 		{
 			name:        "urlStat: nil; Limit: > 0",
-			inputLimit:  1,
+			inputLimit:  newLimitUrlValues(1),
 			expectedErr: true,
 		},
 		{
 			name:        "urlStat: nil; Limit: < 0",
-			inputLimit:  -1,
+			inputLimit:  newLimitUrlValues(-1),
 			expectedErr: true,
 		},
 		{

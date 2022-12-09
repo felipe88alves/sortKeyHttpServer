@@ -150,7 +150,7 @@ Add the following section to your `launch.json`:
             "program": "${fileDirname}",
             "env": {
                 "DATA_COLLECTION_METHOD": "file",
-                "DATA_COLLECTION_PATH": "resources/raw-json-files"
+                "DATA_COLLECTION_PATH": "dev-resources/raw-json-files"
             }
         }
     ]

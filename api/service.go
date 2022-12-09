@@ -1,19 +1,20 @@
-package main
+package api
 
 import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io/fs"
 	"log"
 	"net/http"
 	"net/url"
-	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/felipe88alves/sortKeyHttpServer/types"
+	"github.com/felipe88alves/sortKeyHttpServer/utils"
 )
 
 const (
@@ -30,7 +31,15 @@ const (
 
 var (
 	defaultHttpDataSource = "config"
-	defaultFileDataSource = filepath.Join("resources", "raw-json-files")
+	defaultFileDataSource = filepath.Join("dev-resources", "raw-json-files")
+
+	fileTypeCfg  = ".cfg"
+	fileTypeJson = ".json"
+
+	fileTypeBySource map[string]string = map[string]string{
+		urlDataSourceHttp: fileTypeCfg,
+		urlDataSourceFile: fileTypeJson,
+	}
 
 	retryAttempts  = 5
 	backoffPeriods = []time.Duration{
@@ -41,7 +50,7 @@ var (
 )
 
 type service interface {
-	getUrlStatsData(context.Context) (*urlStatData, error)
+	getUrlStatsData(context.Context) (*types.UrlStatData, error)
 }
 
 type urlStatDataService struct {
@@ -49,7 +58,7 @@ type urlStatDataService struct {
 	dataSourcePath string
 }
 
-func newUrlStatDataService(dataSourceType string, dataSourcePath string) (service, error) {
+func NewUrlStatDataService(dataSourceType string, dataSourcePath string) (service, error) {
 	var err error
 
 	dataSourceType = getDataSourceType(dataSourceType)
@@ -57,30 +66,20 @@ func newUrlStatDataService(dataSourceType string, dataSourcePath string) (servic
 	if err != nil {
 		return nil, err
 	}
+
 	return &urlStatDataService{
 		dataSourceType: dataSourceType,
 		dataSourcePath: dataSourcePath,
 	}, nil
 }
 
-func (uS *urlStatDataService) getUrlStatsData(ctx context.Context) (*urlStatData, error) {
-	var err error
-	wd, err := os.Getwd()
-	if err != nil {
-		return nil, err
-	}
-	basePath := mustGetBasePath(wd)
-	files, err := getFilesInRelativePath(uS.dataSourcePath, basePath)
-	if err != nil {
-		return nil, err
-	} else if len(files) == 0 {
-		return nil, fmt.Errorf("no files were loaded from the configured Data Sources")
-	}
+func (uS *urlStatDataService) getUrlStatsData(ctx context.Context) (*types.UrlStatData, error) {
+
 	switch uS.dataSourceType {
 	case urlDataSourceHttp:
-		return uS.getUrlStatsDataHttpEndpointsFromFile(ctx, files, basePath)
+		return uS.getUrlStatsDataHttpEndpointsFromFile(ctx)
 	case urlDataSourceFile:
-		return uS.getUrlStatsDataFromFile(files, basePath)
+		return uS.getUrlStatsDataFromFile(ctx)
 	default:
 		return nil, fmt.Errorf("invalid method for getting json data. Data Source: %s", uS.dataSourceType)
 	}
@@ -95,7 +94,6 @@ func getDataSourceType(dataSourceType string) string {
 		log.Printf("WARNING: Do not use this setting in production. Overriding Data Source to custom value: %v", urlDataSourceFile)
 		return dataSourceType
 	default:
-		// If not defined. Defaults to fetching data from URLs (HTTP Endpoints)
 		log.Printf("WARNING: Invalid Data Source Selected: %v. Using default value: %v", dataSourceType, urlDataSourceHttp)
 		return urlDataSourceHttp
 	}
@@ -117,8 +115,13 @@ func getDataSource(dataSourceType, dataSourcePath string) (string, error) {
 	return dataSourcePath, nil
 }
 
-func (uS *urlStatDataService) getUrlStatsDataHttpEndpointsFromFile(ctx context.Context, files []fs.DirEntry, basePath string) (*urlStatData, error) {
-	urlStats := new(urlStatData)
+func (uS *urlStatDataService) getUrlStatsDataHttpEndpointsFromFile(ctx context.Context) (*types.UrlStatData, error) {
+	files, err := utils.GetFilesInRelativePathByType(uS.dataSourcePath, fileTypeCfg)
+	if err != nil {
+		return nil, err
+	}
+
+	urlStats := new(types.UrlStatData)
 	errCount := 0
 
 	ch := make(chan interface{})
@@ -126,7 +129,7 @@ func (uS *urlStatDataService) getUrlStatsDataHttpEndpointsFromFile(ctx context.C
 
 	for _, file := range files {
 		relativeFilePath := filepath.Join(uS.dataSourcePath, file.Name())
-		fileName, err := mustGetFile(basePath, relativeFilePath)
+		fileName, err := utils.MustGetFile(relativeFilePath)
 		if err != nil {
 			return nil, err
 		}
@@ -138,7 +141,6 @@ func (uS *urlStatDataService) getUrlStatsDataHttpEndpointsFromFile(ctx context.C
 
 		for _, urlAddr := range urls {
 			wg.Add(1)
-			// go getUrlStatsDataHttp(urlAddr, ch, &wg)
 			go func(urlAddr string, ch chan<- interface{}, wg *sync.WaitGroup) {
 				defer wg.Done()
 				urlData, err := getUrlStatsDataHttp(urlAddr)
@@ -161,7 +163,7 @@ func (uS *urlStatDataService) getUrlStatsDataHttpEndpointsFromFile(ctx context.C
 		case error:
 			log.Printf("Error: %v", r)
 			errCount++
-		case *urlStatData:
+		case *types.UrlStatData:
 			if r != nil {
 				urlStats.Data = append(urlStats.Data, r.Data...)
 			}
@@ -177,14 +179,12 @@ func (uS *urlStatDataService) getUrlStatsDataHttpEndpointsFromFile(ctx context.C
 	return urlStats, nil
 }
 
-func getUrlStatsDataHttp(urlAddr string) (*urlStatData, error) {
-	// func getUrlStatsDataHttp(urlAddr string, ch chan<- interface{}, wg *sync.WaitGroup) {
+func getUrlStatsDataHttp(urlAddr string) (*types.UrlStatData, error) {
 	var (
 		r       *http.Response
 		success bool
 		err     error
 	)
-	// defer wg.Done()
 
 retry_loop:
 	for _, backoff := range backoffPeriods {
@@ -200,37 +200,34 @@ retry_loop:
 		}
 	}
 	if !success {
-		// ch <- fmt.Errorf("ERROR: Retry limit exceeded. Failed to HTTP GET %v", urlAddr)
-		// return
 		return nil, fmt.Errorf("ERROR: Retry limit exceeded. Failed to HTTP GET %v", urlAddr)
 	}
 	statusOK := r.StatusCode >= 200 && r.StatusCode < 300
 	if !statusOK {
-		// ch <- fmt.Errorf(http.StatusText(r.StatusCode))
-		// return
-		return nil, fmt.Errorf(http.StatusText(r.StatusCode))
+		return nil, fmt.Errorf("HTTP Get to %v Failed. HTTP Response: %d - %s", urlAddr, r.StatusCode, http.StatusText(r.StatusCode))
 	}
 
 	defer r.Body.Close()
-	urlStats := new(urlStatData)
+	urlStats := new(types.UrlStatData)
 	json.NewDecoder(r.Body).Decode(urlStats)
-	// ch <- urlStats
 	return urlStats, nil
 }
 
-func (uS *urlStatDataService) getUrlStatsDataFromFile(files []fs.DirEntry, basePath string) (*urlStatData, error) {
-	if len(files) == 0 {
-		return nil, fmt.Errorf("no valid files were found in the configured Data Source Path. Data Source Type: %v", urlDataSourceFile)
+func (uS *urlStatDataService) getUrlStatsDataFromFile(ctx context.Context) (*types.UrlStatData, error) {
+	files, err := utils.GetFilesInRelativePathByType(uS.dataSourcePath, fileTypeJson)
+	if err != nil {
+		return nil, err
 	}
-	urlStats := new(urlStatData)
+
+	urlStats := new(types.UrlStatData)
 
 	for _, file := range files {
 		relativeFilePath := filepath.Join(uS.dataSourcePath, file.Name())
-		fileName, err := mustGetFile(basePath, relativeFilePath)
+		fileName, err := utils.MustGetFile(relativeFilePath)
 		if err != nil {
 			return nil, err
 		}
-		urlStatsInstance := urlStatData{}
+		urlStatsInstance := types.UrlStatData{}
 		if err := json.Unmarshal(fileName, &urlStatsInstance); err != nil {
 			log.Printf("Failed to unmarshal json data from file-based source. File: %v Error: %v", relativeFilePath, err)
 			// TODO: Investigate: Should we allow the program to continue if one files fails to be loaded?
@@ -259,14 +256,15 @@ func validateUrls(urls []string) ([]string, error) {
 }
 
 func isValidUrlPrefixProtocol(url string) bool {
-	return strings.HasPrefix(url, validUrlPrefixProtocolHttp) || strings.HasPrefix(url, validUrlPrefixProtocolHttps)
+	a := strings.HasPrefix(url, validUrlPrefixProtocolHttp)
+	return a || strings.HasPrefix(url, validUrlPrefixProtocolHttp) || strings.HasPrefix(url, validUrlPrefixProtocolHttps)
 }
 
 func isValidUrlSuffixFileType(url string) bool {
-	return strings.HasSuffix(url, validUrlSuffixFileTypeJson)
+	return strings.HasSuffix(url, fileTypeJson)
 }
 
-func mergeSort(items *urlStatSlice, sortBy string) (*urlStatSlice, error) {
+func mergeSort(items *types.UrlStatSlice, sortBy string) (*types.UrlStatSlice, error) {
 	if items == nil {
 		return nil, fmt.Errorf("null pointer exception. Found when sorting Url Data")
 	}
@@ -282,7 +280,7 @@ func mergeSort(items *urlStatSlice, sortBy string) (*urlStatSlice, error) {
 	}
 	second := (*items)[len(*items)/2:]
 	secondPtr, err := mergeSort(&second, sortBy)
-	// The error handling below is unecessary wih current implementation. LDecision was made to leave it in for robustness.
+	// The error handling below is unecessary wih current implementation. Decision was made to leave it in for robustness.
 	// DETAILS ON DECISION: mergeSort error is caused by sortOption, so it would have already been returned in the first call to mergeSort.
 	// This comment block can be removed if additional error handling is added to mergeSort
 	if err != nil {
@@ -291,8 +289,8 @@ func mergeSort(items *urlStatSlice, sortBy string) (*urlStatSlice, error) {
 	return merge(sortBy, firstPtr, secondPtr)
 }
 
-func merge(sortBy string, first, last *urlStatSlice) (*urlStatSlice, error) {
-	final := new(urlStatSlice)
+func merge(sortBy string, first, last *types.UrlStatSlice) (*types.UrlStatSlice, error) {
+	final := new(types.UrlStatSlice)
 	i := 0
 	j := 0
 	for i < len(*first) && j < len(*last) {
@@ -320,7 +318,7 @@ func merge(sortBy string, first, last *urlStatSlice) (*urlStatSlice, error) {
 
 }
 
-func isSortedByOption(sortByOption string, first, last *urlStat) (bool, error) {
+func isSortedByOption(sortByOption string, first, last *types.UrlStat) (bool, error) {
 	const errInvalidSortOption = "invalid sort option selected"
 
 	// Do equals need to be considered? Any logic to solve ties
@@ -334,7 +332,7 @@ func isSortedByOption(sortByOption string, first, last *urlStat) (bool, error) {
 	}
 }
 
-func isSortedByRelevanceScoreAscending(first, last *urlStat) (bool, error) {
+func isSortedByRelevanceScoreAscending(first, last *types.UrlStat) (bool, error) {
 	if first == nil || last == nil {
 		return false, fmt.Errorf("null pointer exception. Found when sorting Views in ascending order")
 	}
@@ -342,7 +340,7 @@ func isSortedByRelevanceScoreAscending(first, last *urlStat) (bool, error) {
 	return first.RelevanceScore < last.RelevanceScore, nil
 }
 
-func isSortedByViewsScoreAscending(first, last *urlStat) (bool, error) {
+func isSortedByViewsScoreAscending(first, last *types.UrlStat) (bool, error) {
 	if first == nil || last == nil {
 		return false, fmt.Errorf("null pointer exception. Found when sorting Views in ascending order")
 	}
@@ -365,7 +363,8 @@ func getLimitValue(limitValueSegment url.Values) int {
 	return limitValue
 }
 
-func limitReponse(u *urlStatSlice, limit int) (*urlStatSlice, error) {
+func limitReponse(u *types.UrlStatSlice, limitParams url.Values) (*types.UrlStatSlice, error) {
+	limit := getLimitValue(limitParams)
 	if u == nil {
 		return nil, fmt.Errorf("null pointer exception. Found when filtering response using Limit Option")
 	}

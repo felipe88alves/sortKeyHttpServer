@@ -3,6 +3,8 @@ package main
 import (
 	"log"
 	"os"
+
+	"github.com/felipe88alves/sortKeyHttpServer/api"
 )
 
 const (
@@ -14,12 +16,12 @@ func main() {
 	dataSourceType := os.Getenv(envVarUrlSource)
 	dataSourcePath := os.Getenv(envVarUrlPath)
 
-	svc, err := newUrlStatDataService(dataSourceType, dataSourcePath)
+	svc, err := api.NewUrlStatDataService(dataSourceType, dataSourcePath)
 	if err != nil {
 		panic(err)
 	}
-	svc = newLoggingService(svc)
+	svc = api.NewLoggingService(svc)
 
-	apiServer := newApiServer(svc)
-	log.Fatal(apiServer.start(":5000"))
+	apiServer := api.NewApiServer(svc)
+	log.Fatal(apiServer.Start(":5000"))
 }
