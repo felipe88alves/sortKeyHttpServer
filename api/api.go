@@ -2,7 +2,7 @@ package api
 
 import (
 	"context"
-	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -25,36 +25,24 @@ func NewApiServer(svc service) *apiServer {
 	}
 }
 
-type apiFunc func(w http.ResponseWriter, r *http.Request) error
-
-func makeHttpHandler(f apiFunc) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		if err := f(w, r); err != nil {
-			if e, ok := err.(apiError); ok {
-				writeJson(w, e.Status, e)
-				return
-			}
-			writeJson(w, http.StatusInternalServerError, apiError{Err: err.Error(), Status: http.StatusInternalServerError})
-		}
-	}
-}
-
 func (s *apiServer) Start(listenAddr string) error {
-	http.HandleFunc("/", makeHttpHandler(s.handleRawStats))
-	http.HandleFunc(fmt.Sprintf("/%s/", sortkeyPath), makeHttpHandler(s.handleSortKey))
+	http.HandleFunc("/", middlewareHandler(s.handleRawStats))
+	http.HandleFunc(fmt.Sprintf("/%s/", sortkeyPath), middlewareHandler(s.handleSortKey))
 	return http.ListenAndServe(listenAddr, nil)
 }
 
-func (s *apiServer) handleRawStats(w http.ResponseWriter, r *http.Request) error {
+func (s *apiServer) handleRawStats(w http.ResponseWriter, r *http.Request) *handlerResponse {
 	if r.URL.Path != "/" {
-		return apiError{Err: http.StatusText(http.StatusBadRequest), Status: http.StatusBadRequest}
+		// Returning nil, since the "/" pattern will always be called
+		// A proper Mux would allow for the appropriate BadRequest Status Code Response
+		return nil
 	}
 	urlStats, err := s.svc.getUrlStatsData((context.Background()))
 	if err != nil {
 		if errStatusCode, errStrconv := strconv.Atoi(err.Error()); errStrconv != nil {
-			return apiError{Err: err.Error(), Status: http.StatusInternalServerError}
+			return &handlerResponse{Err: err, StatusCode: http.StatusInternalServerError}
 		} else {
-			return apiError{Err: err.Error(), Status: errStatusCode}
+			return &handlerResponse{Err: err, StatusCode: errStatusCode}
 		}
 	}
 
@@ -64,31 +52,35 @@ func (s *apiServer) handleRawStats(w http.ResponseWriter, r *http.Request) error
 			SortedUrlStats: &urlStats.Data,
 			Count:          len(urlStats.Data),
 		}
-		writeJson(w, http.StatusOK, jsonReturnMsg)
-
-		return nil
+		return &handlerResponse{resp: &jsonReturnMsg, StatusCode: http.StatusOK}
 
 	default:
-		return apiError{Err: http.StatusText(http.StatusMethodNotAllowed), Status: http.StatusMethodNotAllowed}
+		return &handlerResponse{
+			Err:        errors.New(http.StatusText(http.StatusMethodNotAllowed)),
+			StatusCode: http.StatusMethodNotAllowed}
 	}
 }
 
-func (s *apiServer) handleSortKey(w http.ResponseWriter, r *http.Request) error {
+func (s *apiServer) handleSortKey(w http.ResponseWriter, r *http.Request) *handlerResponse {
 	urlPathSegments := strings.Split(r.URL.Path, fmt.Sprintf("%s/", sortkeyPath))
 	if len(urlPathSegments) == 1 || len(urlPathSegments) > 2 {
-		return apiError{Err: http.StatusText(http.StatusBadRequest), Status: http.StatusBadRequest}
+		return &handlerResponse{
+			Err:        errors.New(http.StatusText(http.StatusBadRequest)),
+			StatusCode: http.StatusBadRequest}
 	}
 	urlPathSegments = strings.Split(urlPathSegments[1], "/")
 	if len(urlPathSegments) != 1 || urlPathSegments[0] == "" {
-		return apiError{Err: http.StatusText(http.StatusBadRequest), Status: http.StatusBadRequest}
+		return &handlerResponse{
+			Err:        errors.New(http.StatusText(http.StatusBadRequest)),
+			StatusCode: http.StatusBadRequest}
 	}
 
 	urlStats, err := s.svc.getUrlStatsData((context.Background()))
 	if err != nil {
 		if errStatusCode, errStrconv := strconv.Atoi(err.Error()); errStrconv != nil {
-			return apiError{Err: err.Error(), Status: http.StatusInternalServerError}
+			return &handlerResponse{Err: err, StatusCode: http.StatusInternalServerError}
 		} else {
-			return apiError{Err: err.Error(), Status: errStatusCode}
+			return &handlerResponse{Err: err, StatusCode: errStatusCode}
 		}
 	}
 
@@ -97,27 +89,22 @@ func (s *apiServer) handleSortKey(w http.ResponseWriter, r *http.Request) error 
 		sortOption := urlPathSegments[0]
 		urlStatResponse, err := mergeSort(&urlStats.Data, sortOption)
 		if err != nil {
-			return apiError{Err: err.Error(), Status: http.StatusInternalServerError}
+			return &handlerResponse{Err: err, StatusCode: http.StatusInternalServerError}
 		}
 
 		urlStatResponse, err = limitReponse(urlStatResponse, r.URL.Query())
 		if err != nil {
-			return apiError{Err: err.Error(), Status: http.StatusInternalServerError}
+			return &handlerResponse{Err: err, StatusCode: http.StatusInternalServerError}
 		}
 
 		jsonReturnMsg := types.ResponseUrlStats{
 			SortedUrlStats: urlStatResponse,
 			Count:          len(*urlStatResponse),
 		}
-		writeJson(w, http.StatusOK, jsonReturnMsg)
-		return nil
+		return &handlerResponse{resp: &jsonReturnMsg, StatusCode: http.StatusOK}
 	default:
-		return apiError{Err: http.StatusText(http.StatusMethodNotAllowed), Status: http.StatusMethodNotAllowed}
+		return &handlerResponse{
+			Err:        errors.New(http.StatusText(http.StatusMethodNotAllowed)),
+			StatusCode: http.StatusMethodNotAllowed}
 	}
-}
-
-func writeJson(w http.ResponseWriter, httpStatus int, v any) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(httpStatus)
-	return json.NewEncoder(w).Encode(v)
 }

@@ -31,6 +31,10 @@ func init() {
 		"_test_resources",
 		"service_test",
 	)
+
+	// Overwritting global params to reduce test time
+	retryAttempts = 1
+	backoffPeriods = []time.Duration{0}
 }
 
 func TestNewUrlStatDataService(t *testing.T) {
@@ -395,10 +399,6 @@ func TestGetUrlStatsDataHttpEndpointsFromFile_MockServer(t *testing.T) {
 		},
 	}
 
-	// Overwritting global params to reduce test time
-	retryAttempts = 1
-	backoffPeriods = []time.Duration{0}
-
 	for _, tc := range testCases {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
@@ -609,10 +609,6 @@ func TestGetUrlStatsDataHttp_MockServer(t *testing.T) {
 			expectedErr:       true,
 		},
 	}
-
-	// Overwritting global params to reduce test time
-	retryAttempts = 1
-	backoffPeriods = []time.Duration{0}
 
 	for _, tc := range testCases {
 		tc := tc
