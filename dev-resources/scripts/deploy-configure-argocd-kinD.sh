@@ -40,7 +40,6 @@ function update_argocd_password_and_login () {
       login_to_argocd_cli ${argocd_default_password}
       ${argocd_bin} account update-password --current-password ${argocd_default_password} --new-password ${argocd_password}
       login_to_argocd_cli ${argocd_password}
-
       # TODO: Delete secret with password
   fi
 }
@@ -66,14 +65,13 @@ declare -r git_root=$(git rev-parse --show-toplevel)
 declare -r argocd_bin="$git_root/bin/3pp/argocd"
 declare -r argocd_username="admin"
 declare -r argocd_password="admin123"
-declare -r argocd_server_nodeport="127.0.0.1:30950"
+declare -r argocd_server_nodeport="127.0.0.1:8080"
 
 # init
 access_kind_mgmt_cluster
 deploy_and_configure_argocd
 download_argocd_cli
 update_argocd_password_and_login
-add_repo_to_argocd
 start_projects_and_applications
 
 # ------------- End script -------------

@@ -69,6 +69,10 @@ docker-build: fmt vet test-unit ## Build docker image with the webservice.
 kind-load-docker-image: --kind ## Push docker image with the webservice to kind cluster.
 	$(KIND) load docker-image ${REPO}/${IMG}:${TAG}
 
+.PHONY: kind-load-docker-image-mgmt
+kind-load-docker-image-mgmt: --kind ## Push docker image with the webservice to kind cluster.
+	$(KIND) load docker-image ${REPO}/${IMG}:${TAG} --name kind-mgmt
+
 ##@ Deployment Infra
 
 .PHONY: kind-create-cluster

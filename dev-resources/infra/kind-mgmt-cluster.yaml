@@ -4,5 +4,7 @@ name: kind-mgmt
 nodes:
 - role: control-plane
   extraPortMappings:
+  - containerPort: 30000
+    hostPort: 8080
   - containerPort: 30950
-    hostPort: 30950
+    hostPort: 80
