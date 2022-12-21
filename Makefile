@@ -1,8 +1,8 @@
 
 # Image URL to use all building/pushing image targets
-REPO ?= webservice
-IMG ?= sortedurlstats
-TAG ?= 0.1
+REPO?=webservice
+IMG?=sortedurlstats
+TAG?=0.1
 
 # Get the currently used golang install path (in GOPATH/bin, unless GOBIN is set)
 ifeq (,$(shell go env GOBIN))
@@ -11,8 +11,9 @@ else
 GOBIN=$(shell go env GOBIN)
 endif
 
-DATASOURCEMETHOD ?= file
-DOCKER_PORT ?= 80
+DATASOURCEMETHOD?=file
+DOCKER_PORT?=80
+KIND_CLUSTER_NAME?=default
 
 ##@ General
 
@@ -52,7 +53,7 @@ test-unit: pre-test --unit
 
 .PHONY: run
 run: fmt vet ## Run the webservice from host.
-	go run ./...
+	DATA_COLLECTION_METHOD=${DATASOURCEMETHOD} go run ./...
 
 ##@ Build
 
@@ -74,9 +75,25 @@ kind-load-docker-image: --kind ## Push docker image with the webservice to kind 
 kind-create-cluster: --kind ## Deploy Kind k8s cluster.
 	$(KIND) create cluster --config=./dev-resources/infra/kind-cluster.yaml
 
+.PHONY: kind-create-cluster-mgmt
+kind-create-cluster-mgmt: --kind ## Deploy Kind k8s mgmt cluster. GitOps focus
+	$(KIND) create cluster --config=./dev-resources/infra/kind-mgmt-cluster.yaml
+
+.PHONY: kind-create-cluster-dev
+kind-create-cluster-dev: --kind ## Deploy Kind k8s dev cluster. GitOps focus
+	$(KIND) create cluster --config=./dev-resources/infra/kind-dev-cluster.yaml
+
 .PHONY: kind-delete-cluster
 kind-delete-cluster: --kind ## Delete Kind k8s cluster.
 	$(KIND) delete cluster
+
+.PHONY: kind-delete-cluster-mgmt
+kind-delete-cluster-mgmt: --kind ## Deploy Kind k8s mgmt cluster. GitOps focus
+	$(KIND) delete cluster --name kind-mgmt
+
+.PHONY: kind-delete-cluster-dev
+kind-delete-cluster-dev: --kind ## Deploy Kind k8s dev cluster. GitOps focus
+	$(KIND) delete cluster --name kind-dev
 
 ##@ Deployment App
 
@@ -144,6 +161,7 @@ $(LOCALBIN):
 
 ## Tool Binaries
 KIND ?= $(LOCALBIN)/kind
+MINIKUBE ?= $(LOCALBIN)/minikube
 KUSTOMIZE ?= $(LOCALBIN)/kustomize
 
 ## Tool Versions
@@ -158,3 +176,8 @@ KUSTOMIZE_INSTALL_SCRIPT ?= "https://raw.githubusercontent.com/kubernetes-sigs/k
 --kustomize: $(KUSTOMIZE) ## Download kustomize locally if necessary.
 $(KUSTOMIZE): $(LOCALBIN)
 	test -s $(LOCALBIN)/kustomize || curl -s $(KUSTOMIZE_INSTALL_SCRIPT) | bash -s -- $(subst v,,$(KUSTOMIZE_VERSION)) $(LOCALBIN)
+
+MINIKUBE_INSTALL_BIN ?= "https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64"
+--minikube: $(MINIKUBE) ## Download minikube locally if necessary.
+$(MINIKUBE): $(LOCALBIN)
+	test -s $(LOCALBIN)/minikube || curl -LO $(MINIKUBE_INSTALL_BIN) | install minikube-linux-amd64 $(LOCALBIN)/minikube

@@ -15,3 +15,6 @@ bin/*
 
 # Go workspace file
 go.work
+
+# k8s secrets
+dev-resources/argocd-service/argocd/overlays/kinD/secret-repo.yaml

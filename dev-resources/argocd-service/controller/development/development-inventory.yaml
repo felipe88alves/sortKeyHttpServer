@@ -1,0 +1,23 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: development-inventory
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+  labels:
+    app.ericsson.io/argocd-object: dev_environment
+spec:
+  project: development
+  source:
+    path: dev-resources/inventory/
+    repoURL: https://github.com/felipe88alves/sortKeyHttpServer.git
+    targetRevision: HEAD
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: development
+  syncPolicy:
+    automated:
+      selfHeal: true
+      prune: true
+
