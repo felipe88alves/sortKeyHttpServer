@@ -1,21 +1,19 @@
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: dev-inventory
-  namespace: argocd
+  name: dev-vcluster
+  namespace: cloud-infra
   finalizers:
     - resources-finalizer.argocd.argoproj.io
-  labels:
-    app.ericsson.io/argocd-object: dev_environment
 spec:
   project: development
   source:
-    path: dev-resources/inventory/
+    path: dev-resources/argocd-service/infra/development
     repoURL: https://github.com/felipe88alves/sortKeyHttpServer.git
     targetRevision: HEAD
   destination:
     server: https://kubernetes.default.svc
-    namespace: development
+    # namespace: cloud-infra
   syncPolicy:
     automated:
       selfHeal: true

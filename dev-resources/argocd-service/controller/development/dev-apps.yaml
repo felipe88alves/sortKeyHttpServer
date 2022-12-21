@@ -1,0 +1,25 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: dev-app
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+  labels:
+    app.io/app: sortkeyserver
+    app.io/argocd-object: app
+spec:
+  project: development
+  source:
+    path: dev-resources/argocd-service/apps/development
+    repoURL: https://github.com/felipe88alves/sortKeyHttpServer.git
+    targetRevision: HEAD
+    directory:
+      recurse: true
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: development
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true

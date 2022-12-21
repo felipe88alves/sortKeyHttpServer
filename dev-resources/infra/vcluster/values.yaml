@@ -1,0 +1,3 @@
+syncer:
+  extraArgs:
+  - --tls-san=vc1.vc1-vcluster

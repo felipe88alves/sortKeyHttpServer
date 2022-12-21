@@ -6,7 +6,7 @@ metadata:
   finalizers:
     - resources-finalizer.argocd.argoproj.io
   labels:
-    app.ericsson.io/argocd-object: controller
+    app.io/argocd-object: controller
 spec:
   project: development
   source:
@@ -16,6 +16,35 @@ spec:
   destination:
     server: https://kubernetes.default.svc
     namespace: development
+  syncPolicy:
+    automated:
+      selfHeal: true
+      prune: true
+    syncOptions:
+      - CreateNamespace=true
+
+---
+
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: cloud-infra-controller
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+  labels:
+    app.io/argocd-object: controller
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"
+spec:
+  project: cloud-infra
+  source:
+    path: dev-resources/argocd-service/controller/cloud-infra
+    repoURL: https://github.com/felipe88alves/sortKeyHttpServer.git
+    targetRevision: HEAD
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: cloud-infra
   syncPolicy:
     automated:
       selfHeal: true

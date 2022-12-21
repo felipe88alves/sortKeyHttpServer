@@ -1,0 +1,23 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: dev-inventory
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+  labels:
+    app.io/argocd-object: deployment
+spec:
+  project: development
+  source:
+    path: dev-resources/inventory/
+    repoURL: https://github.com/felipe88alves/sortKeyHttpServer.git
+    targetRevision: HEAD
+  destination:
+    server: https://vc1.vcluster-vc1:443
+    namespace: default
+  syncPolicy:
+    automated:
+      selfHeal: true
+      prune: true
+

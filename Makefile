@@ -69,9 +69,9 @@ docker-build: fmt vet test-unit ## Build docker image with the webservice.
 kind-load-docker-image: --kind ## Push docker image with the webservice to kind cluster.
 	$(KIND) load docker-image ${REPO}/${IMG}:${TAG}
 
-.PHONY: kind-load-docker-image-mgmt
-kind-load-docker-image-mgmt: --kind ## Push docker image with the webservice to kind cluster.
-	$(KIND) load docker-image ${REPO}/${IMG}:${TAG} --name kind-mgmt
+.PHONY: kind-load-docker-image-gitops
+kind-load-docker-image-gitops: --kind ## Push docker image with the webservice to kind cluster.
+	$(KIND) load docker-image ${REPO}/${IMG}:${TAG} --name kind-gitops
 
 ##@ Deployment Infra
 
@@ -79,27 +79,23 @@ kind-load-docker-image-mgmt: --kind ## Push docker image with the webservice to 
 kind-create-cluster: --kind ## Deploy Kind k8s cluster.
 	$(KIND) create cluster --config=./dev-resources/infra/kind-cluster.yaml
 
-.PHONY: kind-create-cluster-mgmt
-kind-create-cluster-mgmt: --kind ## Deploy Kind k8s mgmt cluster. GitOps focus
-	$(KIND) create cluster --config=./dev-resources/infra/kind-mgmt-cluster.yaml
-
-.PHONY: kind-create-cluster-dev
-kind-create-cluster-dev: --kind ## Deploy Kind k8s dev cluster. GitOps focus
-	$(KIND) create cluster --config=./dev-resources/infra/kind-dev-cluster.yaml
+.PHONY: kind-create-cluster-gitops
+kind-create-cluster-gitops: --kind ## Deploy Kind k8s GitOps cluster.
+	$(KIND) create cluster --config=./dev-resources/infra/kind-gitops-cluster.yaml
 
 .PHONY: kind-delete-cluster
 kind-delete-cluster: --kind ## Delete Kind k8s cluster.
 	$(KIND) delete cluster
 
-.PHONY: kind-delete-cluster-mgmt
-kind-delete-cluster-mgmt: --kind ## Deploy Kind k8s mgmt cluster. GitOps focus
-	$(KIND) delete cluster --name kind-mgmt
-
-.PHONY: kind-delete-cluster-dev
-kind-delete-cluster-dev: --kind ## Deploy Kind k8s dev cluster. GitOps focus
-	$(KIND) delete cluster --name kind-dev
+.PHONY: kind-delete-cluster-gitops
+kind-delete-cluster-gitops: --kind ## Deploy Kind k8s GitOps cluster.
+	$(KIND) delete cluster --name kind-gitops
 
 ##@ Deployment App
+
+.PHONY: deploy-gitops
+deploy-gitops: --kustomize --helm --vcluster ## Deploy urlstats app to the K8s cluster specified in ~/.kube/config using Kustomize.
+	./dev-resources/scripts/deploy-configure-argocd-kinD.sh
 
 .PHONY: deploy-kustomize
 deploy-kustomize: --kustomize ## Deploy urlstats app to the K8s cluster specified in ~/.kube/config using Kustomize.
@@ -132,6 +128,9 @@ deploy-bin: build ## Deploy urlstats app locally using go binary.
 ##@ E2E Deployment
 .PHONY: all
 all: test-unit docker-build kind-delete-cluster kind-create-cluster kind-load-docker-image deploy-kustomize ## build docker image, provision k8's kinD cluster and deploy urlstats webservice using kustomize
+
+.PHONY: all-gitops
+all-gitops: test-unit docker-build kind-delete-cluster-gitops kind-create-cluster-gitops kind-load-docker-image-gitops deploy-gitops ## build docker image, provision k8's kinD cluster and deploy urlstats webservice using GitOps principles
 
 ##@ Support/Troubleshoot
 .PHONY: kind-list-loaded-images
@@ -167,10 +166,13 @@ $(LOCALBIN):
 KIND ?= $(LOCALBIN)/kind
 MINIKUBE ?= $(LOCALBIN)/minikube
 KUSTOMIZE ?= $(LOCALBIN)/kustomize
+HELM ?= $(LOCALBIN)/helm
+VCLUSTER ?= $(LOCALBIN)/vcluster
 
 ## Tool Versions
 KIND_VERSION ?= v0.17.0
 KUSTOMIZE_VERSION ?= v4.5.7
+HELM_VERSION ?= v3.10.3
 
 --kind: $(KIND) ## Download kind locally if necessary.
 $(KIND): $(LOCALBIN)
@@ -184,4 +186,17 @@ $(KUSTOMIZE): $(LOCALBIN)
 MINIKUBE_INSTALL_BIN ?= "https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64"
 --minikube: $(MINIKUBE) ## Download minikube locally if necessary.
 $(MINIKUBE): $(LOCALBIN)
-	test -s $(LOCALBIN)/minikube || curl -LO $(MINIKUBE_INSTALL_BIN) | install minikube-linux-amd64 $(LOCALBIN)/minikube
+	test -s $(LOCALBIN)/minikube || curl -LO $(MINIKUBE_INSTALL_BIN) && install minikube-linux-amd64 $(LOCALBIN)/minikube
+
+--helm: $(HELM)
+$(HELM): $(LOCALBIN)
+	test -s $(LOCALBIN)/helm || wget https://get.helm.sh/helm-${HELM_VERSION}-linux-amd64.tar.gz
+	test -s helm-${HELM_VERSION}-linux-amd64.tar.gz || tar xvf helm-${HELM_VERSION}-linux-amd64.tar.gz
+	test -s linux-amd64/helm || mv linux-amd64/helm $(LOCALBIN)
+	rm -rf linux-amd64 helm-${HELM_VERSION}-linux-amd64.tar.gz
+
+--vcluster: $(VCLUSTER)
+$(VCLUSTER): $(LOCALBIN)
+	test -s $(LOCALBIN)/vcluster || curl -L -o vcluster "https://github.com/loft-sh/vcluster/releases/latest/download/vcluster-linux-amd64"
+	test -s vcluster || install -c -m 0755 vcluster $(LOCALBIN)
+	rm -f vcluster
